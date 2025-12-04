@@ -1,0 +1,125 @@
+/* Bomberman DOM Styles */
+
+body {
+    margin: 0;
+    padding: 0;
+    font-family: Arial, sans-serif;
+    background: #2c3e50;
+    color: white;
+}
+
+#app {
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* Game board */
+.game-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+.game-board {
+    border: 2px solid #fff;
+    background: #34495e;
+}
+
+/* UI Elements */
+.ui-container {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    z-index: 100;
+}
+
+.player-info {
+    background: rgba(0,0,0,0.7);
+    padding: 10px;
+    border-radius: 5px;
+    margin-bottom: 10px;
+}
+
+.timer {
+    font-size: 24px;
+    font-weight: bold;
+    text-align: center;
+}
+
+/* Chat */
+.chat-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 300px;
+    height: 200px;
+    background: rgba(0,0,0,0.8);
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+.chat-messages {
+    height: 160px;
+    overflow-y: scroll;
+    padding: 10px;
+}
+
+.chat-input {
+    width: 100%;
+    padding: 10px;
+    border: none;
+    background: #444;
+    color: white;
+}
+
+/* Lobby */
+.lobby-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+}
+
+.nickname-form {
+    margin-bottom: 20px;
+}
+
+.nickname-input {
+    padding: 10px;
+    font-size: 18px;
+    border-radius: 5px;
+    border: none;
+    margin-right: 10px;
+}
+
+.join-button {
+    padding: 10px 20px;
+    font-size: 18px;
+    background: #3498db;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.join-button:hover {
+    background: #2980b9;
+}
+
+.waiting-room {
+    text-align: center;
+}
+
+.player-counter {
+    font-size: 24px;
+    margin: 20px 0;
+}
+
+.countdown {
+    font-size: 36px;
+    color: #e74c3c;
+    margin: 20px 0;
+}
