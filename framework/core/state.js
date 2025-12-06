@@ -55,11 +55,22 @@ class StateStore {
 
 
 // Create the global store instance that the whole app will use
+// In framework/core/state.js, update the initial state:
+
 const store = new StateStore({
-    // Initial state for TodoMVC app
-    todos: [], // List of all todos
-    filter: 'all', // Current filter: 'all', 'active', 'completed'
-    editingId: null // ID of todo being edited (null = none)
+  todos: [],
+  filter: 'all',
+  editingId: null,
+  
+  // Add map state
+  map: {
+    data: [],      // The actual map grid
+    rows: 13,
+    cols: 15
+  },
+  
+  // Add player state
+  players: []
 });
 
 // Export the store and StateStore class
