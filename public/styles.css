@@ -123,3 +123,60 @@ body {
     color: #e74c3c;
     margin: 20px 0;
 }
+/* Game Root */
+.game-root {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 20px;
+}
+
+.game-root h1 {
+    color: white;
+    font-size: 3em;
+    margin-bottom: 30px;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+}
+
+/* Map Grid */
+.map {
+    display: inline-block;
+    border: 4px solid white;
+    background: #1a1a1a;
+    padding: 10px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+    border-radius: 8px;
+}
+
+.map-row {
+    display: flex;
+    line-height: 0;
+}
+
+.map-cell {
+    width: 32px;
+    height: 32px;
+    box-sizing: border-box;
+    border: 1px solid #333;
+}
+
+/* Cell types */
+.map-cell-wall {
+    background: #2c3e50; /* Dark gray for walls */
+    background-image: 
+        linear-gradient(45deg, #34495e 25%, transparent 25%),
+        linear-gradient(-45deg, #34495e 25%, transparent 25%);
+    background-size: 8px 8px;
+}
+
+.map-cell-block {
+    background: #8B4513; /* Brown for destructible blocks */
+    border: 2px solid #654321;
+}
+
+.map-cell-empty {
+    background: #90EE90; /* Light green for empty */
+}
