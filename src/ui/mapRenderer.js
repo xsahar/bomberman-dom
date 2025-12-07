@@ -13,9 +13,9 @@ export function renderMap(mapData) {
           },
           []
         )
-      )
+      ) || []
     )
   );
 
-  return h.div({ className: 'map' }, rowNodes);
+  return h.div({ className: 'map' }, rowNodes || []);
 }

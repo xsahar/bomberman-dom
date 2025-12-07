@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server/websocketServer.js",
     "dev": "node server/websocketServer.js",
-    "serve": "npx http-server public -p 8080"
+    "serve": "npx http-server . -p 8080 -c-1"
   },
   "dependencies": {
     "ws": "^8.14.0"

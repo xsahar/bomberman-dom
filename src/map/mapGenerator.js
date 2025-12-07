@@ -1,20 +1,10 @@
 // Person 2: Map Generation & Power-ups
-// TODO: Implement MapGenerator class for creating the game map
-
-// Requirements:
-// - Generate 15x13 grid map
-// - Place walls in fixed positions  
-// - Randomly generate destructible blocks
-// - Ensure corner spawn areas are clear (3x3 safe zones)
-// - Methods: generateMap(), placeWalls(), placeBlocks(), clearSpawnAreas(), getMapData()
-
-
-
+// Requirements: 15x13 grid, Fixed Walls, Random Blocks, Safe Spawns.
 
 import { store } from '../../framework/index.js';
 
-
 export class MapGenerator {
+    // Default to 13 Rows x 15 Cols (Standard Bomberman Size)
     constructor(rows = 13, cols = 15) {
         this.rows = rows;
         this.cols = cols;
@@ -22,10 +12,27 @@ export class MapGenerator {
     }
 
     generateMap() {
-        this.createEmptyMap(); // Fixed typo
+        this.createEmptyMap(); 
         this.placeWalls();
-        this.clearSpawnAreas(); // Clear BEFORE placing blocks
+        
+        // Clear spawn areas BEFORE placing blocks to mark them safe
+        this.clearSpawnAreas(); 
+        
         this.placeBlocks();
+
+        // ---------------------------------------------------------
+        // FRAMEWORK INTEGRATION: Save to Global Store
+        // ---------------------------------------------------------
+        // This makes the map visible to the Renderer and Bomb Logic
+        store.setState({
+            map: {
+                data: this.map,        
+                rows: this.rows,
+                cols: this.cols
+            }
+        });
+        console.log("✅ Map generated and saved to Global Store!");
+
         return this.map;
     }
 
@@ -33,24 +40,31 @@ export class MapGenerator {
         return this.map;
     }
 
-    createEmptyMap() { // Fixed typo: was createEpmtyMap
+    createEmptyMap() {
         this.map = [];
-        for (let row = 0; row < this.rows; row++) { // Fixed: was 'rows'
+        for (let row = 0; row < this.rows; row++) {
             const rowArr = [];
-            for (let col = 0; col < this.cols; col++) { // Fixed: was 'cols'
-                rowArr.push({ type: 'empty' }); // Fixed: removed extra space
+            for (let col = 0; col < this.cols; col++) {
+                // Initialize every cell as an object
+                rowArr.push({ type: 'empty' }); 
             }
             this.map.push(rowArr);
         }
     }
 
     placeWalls() {
-        for (let row = 0; row < this.rows; row++) { // Fixed: was 'rows'
-            for (let col = 0; col < this.cols; col++) { // Fixed: was 'cols'
-                // Checkerboard pattern: walls at ODD row AND ODD col
-                const isInnerWall = row % 2 === 1 && col % 2 === 1; // Fixed: was row % 2 === 0
+        for (let row = 0; row < this.rows; row++) {
+            for (let col = 0; col < this.cols; col++) {
+                
+                // 1. BORDER WALLS (Edges)
+                // Players cannot walk off the map
+                const isBorder = row === 0 || col === 0 || row === this.rows - 1 || col === this.cols - 1;
 
-                if (isInnerWall) {
+                // 2. INNER WALLS (Pillars)
+                // Standard Bomberman Pattern: Even x Even coordinates
+                const isInnerWall = (row % 2 === 0 && col % 2 === 0);
+
+                if (isBorder || isInnerWall) {
                     this.map[row][col].type = 'wall';
                 }
             }
@@ -61,10 +75,12 @@ export class MapGenerator {
         const lastRow = this.rows - 1;
         const lastCol = this.cols - 1;
 
-        const inTopLeft = row >= 0 && row <= 2 && col >= 0 && col <= 2;
-        const inTopRight = row >= 0 && row <= 2 && col >= lastCol - 2 && col <= lastCol;
-        const inBottomLeft = row >= lastRow - 2 && row <= lastRow && col >= 0 && col <= 2; // Fixed
-        const inBottomRight = row >= lastRow - 2 && row <= lastRow && col >= lastCol - 2 && col <= lastCol;
+        // Define 3x3 Safe Zones at each corner
+        // We check "<= 2" because indices 0, 1, 2 are the first 3 tiles
+        const inTopLeft = row <= 2 && col <= 2;
+        const inTopRight = row <= 2 && col >= lastCol - 2;
+        const inBottomLeft = row >= lastRow - 2 && col <= 2;
+        const inBottomRight = row >= lastRow - 2 && col >= lastCol - 2;
 
         return inTopLeft || inTopRight || inBottomLeft || inBottomRight;
     }
@@ -74,10 +90,12 @@ export class MapGenerator {
             for (let col = 0; col < this.cols; col++) {
                 const cell = this.map[row][col];
 
-                if (cell.type !== 'empty') continue; // Skip walls
-                if (this.isInSpawnArea(row, col)) continue; // Skip spawn areas
+                // Safety Checks
+                if (cell.type === 'wall') continue; // Don't overwrite walls
+                if (this.isInSpawnArea(row, col)) continue; // Double check spawn areas
 
-                if (Math.random() < 0.6) { // 60% chance
+                // Random Chance (e.g., 60% chance for a soft block)
+                if (Math.random() < 0.6) { 
                     cell.type = 'block';
                 }
             }
@@ -85,8 +103,12 @@ export class MapGenerator {
     }
 
     clearSpawnAreas() {
+        // Force reset the corners to 'empty' just in case logic slipped
         for (let row = 0; row < this.rows; row++) {
             for (let col = 0; col < this.cols; col++) {
+                // CRITICAL: Do NOT clear the Hard Walls (borders), only potential block spots
+                if (this.map[row][col].type === 'wall') continue;
+
                 if (this.isInSpawnArea(row, col)) {
                     this.map[row][col].type = 'empty';
                 }
@@ -94,15 +116,14 @@ export class MapGenerator {
         }
     }
 
-    // ADD THIS: Get player spawn positions (corners)
     getSpawnPositions() {
+        // Return SAFE coordinates for players to start.
+        // We use (1,1) instead of (0,0) because (0,0) is a Wall Border.
         return [
-            { row: 0, col: 0 },                    // Top-left corner
-            { row: 0, col: this.cols - 1 },        // Top-right corner
-            { row: this.rows - 1, col: 0 },        // Bottom-left corner
-            { row: this.rows - 1, col: this.cols - 1 } // Bottom-right corner
+            { row: 1, col: 1 },                         // Top-left (Player 1)
+            { row: 1, col: this.cols - 2 },             // Top-right (Player 2)
+            { row: this.rows - 2, col: 1 },             // Bottom-left (Player 3)
+            { row: this.rows - 2, col: this.cols - 2 }  // Bottom-right (Player 4)
         ];
     }
 }
-
-
