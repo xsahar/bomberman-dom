@@ -16,6 +16,7 @@ export class MapGenerator {
         this.placeWalls();
         
         // Clear spawn areas BEFORE placing blocks to mark them safe
+        // (This is now a fail-safe, as placeWalls handles the hard walls)
         this.clearSpawnAreas(); 
         
         this.placeBlocks();
@@ -23,7 +24,6 @@ export class MapGenerator {
         // ---------------------------------------------------------
         // FRAMEWORK INTEGRATION: Save to Global Store
         // ---------------------------------------------------------
-        // This makes the map visible to the Renderer and Bomb Logic
         store.setState({
             map: {
                 data: this.map,        
@@ -56,15 +56,30 @@ export class MapGenerator {
         for (let row = 0; row < this.rows; row++) {
             for (let col = 0; col < this.cols; col++) {
                 
-                // 1. BORDER WALLS (Edges)
-                // Players cannot walk off the map
+                // 1. BORDER WALLS (Edges) - KEEP THESE
+                // Players cannot walk off the map. This check MUST be first.
                 const isBorder = row === 0 || col === 0 || row === this.rows - 1 || col === this.cols - 1;
 
-                // 2. INNER WALLS (Pillars)
+                if (isBorder) {
+                    this.map[row][col].type = 'wall';
+                    continue; // Done with this tile, move to next
+                }
+
+                // --------------------- UPDATED SECTION ---------------------
+                // 2. SAFE ZONE CHECK 
+                // If we are in the 3x3 corner, we force it EMPTY.
+                // We do this BEFORE placing "Inner Walls" to prevent the [2][2] wall.
+                if (this.isInSpawnArea(row, col)) {
+                    this.map[row][col].type = 'empty';
+                    continue; // Skip the rest, ensuring no wall is placed here
+                }
+                // -----------------------------------------------------------
+
+                // 3. INNER WALLS (Pillars)
                 // Standard Bomberman Pattern: Even x Even coordinates
                 const isInnerWall = (row % 2 === 0 && col % 2 === 0);
 
-                if (isBorder || isInnerWall) {
+                if (isInnerWall) {
                     this.map[row][col].type = 'wall';
                 }
             }
@@ -75,12 +90,16 @@ export class MapGenerator {
         const lastRow = this.rows - 1;
         const lastCol = this.cols - 1;
 
-        // Define 3x3 Safe Zones at each corner
-        // We check "<= 2" because indices 0, 1, 2 are the first 3 tiles
-        const inTopLeft = row <= 2 && col <= 2;
-        const inTopRight = row <= 2 && col >= lastCol - 2;
-        const inBottomLeft = row >= lastRow - 2 && col <= 2;
-        const inBottomRight = row >= lastRow - 2 && col >= lastCol - 2;
+        // --------------------- UPDATED SECTION ---------------------
+        // Expanded to 3 (indices 1, 2, 3) to create a literal 3x3 playable area.
+        // Previous value was 2, which only gave a 2x2 playable area.
+        const safeDist = 3; 
+
+        const inTopLeft = row <= safeDist && col <= safeDist;
+        const inTopRight = row <= safeDist && col >= lastCol - safeDist;
+        const inBottomLeft = row >= lastRow - safeDist && col <= safeDist;
+        const inBottomRight = row >= lastRow - safeDist && col >= lastCol - safeDist;
+        // -----------------------------------------------------------
 
         return inTopLeft || inTopRight || inBottomLeft || inBottomRight;
     }
@@ -106,8 +125,11 @@ export class MapGenerator {
         // Force reset the corners to 'empty' just in case logic slipped
         for (let row = 0; row < this.rows; row++) {
             for (let col = 0; col < this.cols; col++) {
-                // CRITICAL: Do NOT clear the Hard Walls (borders), only potential block spots
-                if (this.map[row][col].type === 'wall') continue;
+                
+                // CRITICAL: Do NOT clear the Hard Walls (borders)
+                // Note: We no longer skip Inner Walls here because placeWalls() 
+                // already excluded them from the Safe Zone.
+                if (row === 0 || col === 0 || row === this.rows - 1 || col === this.cols - 1) continue;
 
                 if (this.isInSpawnArea(row, col)) {
                     this.map[row][col].type = 'empty';
@@ -118,11 +140,10 @@ export class MapGenerator {
 
     getSpawnPositions() {
         // Return SAFE coordinates for players to start.
-        // We use (1,1) instead of (0,0) because (0,0) is a Wall Border.
         return [
-            { row: 1, col: 1 },                         // Top-left (Player 1)
-            { row: 1, col: this.cols - 2 },             // Top-right (Player 2)
-            { row: this.rows - 2, col: 1 },             // Bottom-left (Player 3)
+            { row: 1, col: 1 },                     // Top-left (Player 1)
+            { row: 1, col: this.cols - 2 },         // Top-right (Player 2)
+            { row: this.rows - 2, col: 1 },         // Bottom-left (Player 3)
             { row: this.rows - 2, col: this.cols - 2 }  // Bottom-right (Player 4)
         ];
     }

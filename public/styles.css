@@ -10,11 +10,12 @@ body {
 
 #app {
     width: 100%;
-    height: 100vh;
-    overflow: hidden;
+    min-height: 100vh; /* Changed from height to min-height */
+    overflow-y: auto;  /* <-- ADD THIS (Allows scrolling if screen is too small) */
     display: flex;
     align-items: center;
     justify-content: center;
+    padding: 20px 0;   /* Add some breathing room */
 }
 
 /* Game board */
@@ -126,6 +127,7 @@ body {
     color: #e74c3c;
     margin: 20px 0;
 }
+
 /* Game Root */
 .game-root {
     display: flex;
@@ -148,6 +150,9 @@ body {
 
 /* Map Grid */
 .map {
+    /* CRITICAL UPDATE: Anchor point for the player */
+    position: relative; 
+    
     display: inline-block;
     border: 4px solid white;
     background: #1a1a1a;
@@ -163,8 +168,8 @@ body {
 }
 
 .map-cell {
-    width: 32px;
-    height: 32px;
+    width: 40px;   /* <--- Changed from 64px */
+    height: 40px;  /* <--- Changed from 64px */
     box-sizing: border-box;
     border: 1px solid #333;
 }
@@ -190,4 +195,20 @@ body {
 .map-cell-powerup {
     background: #FFD700; /* Gold for power-ups */
     border: 2px solid #FFA500;
+}
+
+/* Player Entity */
+.player {
+    position: absolute;
+    width: 32px;   /* <--- Smaller than the tile (so he fits inside) */
+    height: 32px;
+    z-index: 10;
+    top: 0;
+    left: 0;
+    
+    background-image: url('assets/player.png'); 
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    transition: transform 0.1s linear; 
 }
