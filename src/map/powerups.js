@@ -3,6 +3,9 @@
 
 import { store } from '../../framework/index.js';
 
+// Duration (ms) for temporary powerups (bombs/flames)
+const POWERUP_DURATION_MS = 30000; // 30 seconds
+
 export class PowerupManager {
   constructor() {
     this.powerupTypes = {
@@ -36,16 +39,16 @@ export class PowerupManager {
   }
 
   // Called when player collides with power-up
-  collectPowerup(playerId, powerupId) {
+  collectPowerup(playerId, powerupId, playerInstance = null) {
     const state = store.getState();
     const powerup = state.powerups.find(p => p.id === powerupId);
     
     if (!powerup) return;
 
-    // Apply effect to player
+    // Apply effect to player (update store snapshot)
     const players = state.players.map(p => {
       if (p.id !== playerId) return p;
-      
+
       switch (powerup.type) {
         case 'bombs':
           return { ...p, bombs: (p.bombs || 1) + 1 };
@@ -57,6 +60,60 @@ export class PowerupManager {
           return p;
       }
     });
+
+    // If a live player instance was passed, update its runtime properties so
+    // the effect is immediate. For bombs/flames we make the upgrade temporary
+    // and schedule a timeout to remove it after POWERUP_DURATION_MS.
+    if (playerInstance && powerup) {
+      switch (powerup.type) {
+        case 'bombs': {
+          playerInstance.maxBombs = (playerInstance.maxBombs || 1) + 1;
+          // ensure timer container exists
+          playerInstance._powerupTimers = playerInstance._powerupTimers || { bombs: [], flames: [] };
+          const timerId = setTimeout(() => {
+            // expire one bomb boost
+            playerInstance.maxBombs = Math.max(1, (playerInstance.maxBombs || 1) - 1);
+            // update store snapshot
+            try {
+              const state2 = store.getState();
+              const players2 = (state2.players || []).map(p => p.id === playerId ? { ...p, bombs: (playerInstance.maxBombs || 1) } : p);
+              store.setState({ players: players2 });
+            } catch (err) {
+              console.error('Error updating store after bomb powerup expired:', err);
+            }
+            // remove this timer id from list
+            const idx = playerInstance._powerupTimers.bombs.indexOf(timerId);
+            if (idx !== -1) playerInstance._powerupTimers.bombs.splice(idx, 1);
+          }, POWERUP_DURATION_MS);
+          playerInstance._powerupTimers.bombs.push(timerId);
+          break;
+        }
+        case 'flames': {
+          playerInstance.bombRange = (playerInstance.bombRange || 1) + 1;
+          playerInstance._powerupTimers = playerInstance._powerupTimers || { bombs: [], flames: [] };
+          const timerId = setTimeout(() => {
+            playerInstance.bombRange = Math.max(1, (playerInstance.bombRange || 1) - 1);
+            try {
+              const state2 = store.getState();
+              const players2 = (state2.players || []).map(p => p.id === playerId ? { ...p, flames: (playerInstance.bombRange || 1) } : p);
+              store.setState({ players: players2 });
+            } catch (err) {
+              console.error('Error updating store after flame powerup expired:', err);
+            }
+            const idx = playerInstance._powerupTimers.flames.indexOf(timerId);
+            if (idx !== -1) playerInstance._powerupTimers.flames.splice(idx, 1);
+          }, POWERUP_DURATION_MS);
+          playerInstance._powerupTimers.flames.push(timerId);
+          break;
+        }
+        case 'speed':
+          // Ensure instance has a speed property and scale it (permanent)
+          playerInstance.speed = (playerInstance.speed || 1) * 1.2;
+          break;
+        default:
+          break;
+      }
+    }
 
     // Remove collected powerup
     const updatedPowerups = state.powerups.filter(p => p.id !== powerupId);

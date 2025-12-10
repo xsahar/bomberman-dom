@@ -78,13 +78,10 @@ window.addEventListener('load', () => {
                 
                 // Get player's current grid position directly from player object
                 // (Don't use store - causes rendering issues)
-                const newBomb = bombPlacer.placeBomb({
-                    id: 'local-player',
-                    row: player.row,           // Grid row (updated in move())
-                    col: player.col,           // Grid col (updated in move())
-                    maxBombs: 1,               // Default 1 bomb
-                    bombRange: 1               // Default 1 range
-                }, mapData);
+                // Pass the player instance so the bomb placer can consult
+                // runtime properties (maxBombs, bombRange) which may have
+                // changed from powerups.
+                const newBomb = bombPlacer.placeBomb(player, mapData);
 
                 // B. If successful, set the fuse!
                 if (newBomb) {

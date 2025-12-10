@@ -1,5 +1,6 @@
 // Import the global state manager from the framework
 import { store } from '../../framework/index.js';
+import { getPowerupManager } from '../utils/helpers.js';
 
 // --- Player visual and movement configuration ---
 const TILE_SIZE = 40;       // Size of each map tile in pixels
@@ -16,7 +17,9 @@ export class Player {
         this.lives = 3;          // Audit Requirement: Start with 3 lives
         this.maxBombs = 1;       // Max bombs allowed at once
         this.bombRange = 1;      // Explosion range
+         this.speed = SPEED; 
         this.dead = false;       // Track death state
+        
 
         // Remember starting spawn for respawns
         this.spawnRow = 1;
@@ -74,10 +77,10 @@ export class Player {
         let dy = 0;
 
         // Check which movement keys are pressed
-        if (this.keys['ArrowUp']) dy = -SPEED;
-        if (this.keys['ArrowDown']) dy = SPEED;
-        if (this.keys['ArrowLeft']) dx = -SPEED;
-        if (this.keys['ArrowRight']) dx = SPEED;
+        if (this.keys['ArrowUp']) dy = -this.speed;
+        if (this.keys['ArrowDown']) dy = this.speed;
+        if (this.keys['ArrowLeft']) dx = -this.speed;
+        if (this.keys['ArrowRight']) dx = this.speed;
 
         // Only move if a direction key is pressed
         if (dx !== 0 || dy !== 0) {
@@ -111,6 +114,21 @@ export class Player {
             // ⚠️ Don't update store every frame - causes framework rendering issues
             // The bomb system will use this.row and this.col directly from the player object
             // No need to sync with store on every move 
+            // Check for powerup collection at the new grid position
+            try {
+                const state = store.getState();
+                const powerups = state.powerups || [];
+                const found = powerups.find(p => p.row === this.row && p.col === this.col);
+                if (found) {
+                    const pm = getPowerupManager();
+                    // Pass `this` so runtime properties (speed, bombRange, maxBombs)
+                    // are updated immediately for the local player.
+                    pm.collectPowerup(this.id, found.id, this);
+                    console.log(`🔋 Powerup collected: ${found.type} at [${this.row},${this.col}]`);
+                }
+            } catch (err) {
+                console.error('Error checking/collecting powerup:', err);
+            }
         }
     }
 
@@ -157,6 +175,14 @@ export class Player {
 
         this.lives = Math.max(0, (this.lives || 0) - amount);
         this.flashHit();
+
+        // Reset powerups when the player loses a life
+        // This brings runtime values and the store snapshot back to defaults
+        try {
+            this.resetPowerups();
+        } catch (err) {
+            console.error('Error resetting powerups on damage:', err);
+        }
 
         if (this.lives <= 0) {
             this.die();
@@ -209,6 +235,36 @@ export class Player {
         }
 
         this.render();
+    }
+
+    // Reset runtime powerup-related fields and update store snapshot
+    resetPowerups() {
+        // Reset instance fields to defaults
+        this.maxBombs = 1;
+        this.bombRange = 1;
+        this.speed = SPEED;
+        // Clear any pending powerup timers (temporary boosts)
+        if (this._powerupTimers) {
+            (this._powerupTimers.bombs || []).forEach(t => clearTimeout(t));
+            (this._powerupTimers.flames || []).forEach(t => clearTimeout(t));
+            this._powerupTimers = { bombs: [], flames: [] };
+        }
+        // Also update the serializable player snapshot in the store if present
+        try {
+            const state = store.getState();
+            const players = (state.players || []).map(p => {
+                if (p.id !== this.id) return p;
+                return {
+                    ...p,
+                    bombs: 1,
+                    flames: 1,
+                    speed: 1
+                };
+            });
+            store.setState({ players });
+        } catch (err) {
+            console.error('Error updating store on resetPowerups:', err);
+        }
     }
 
     // Sync the player's grid position with the global store

@@ -1,4 +1,5 @@
 import { store } from '../../framework/index.js';
+import { getPowerupManager } from '../utils/helpers.js';
 
 export class ExplosionSystem {
     
@@ -21,6 +22,16 @@ export class ExplosionSystem {
             // A. DESTROY SOFT BLOCKS
             if (mapData[tile.row][tile.col].type === 'block') {
                 mapData[tile.row][tile.col].type = 'empty';
+
+                // Try to spawn a powerup at the destroyed block's position.
+                // `spawnPowerup` already handles the random chance (30%) and
+                // updates the global store when it creates a powerup.
+                try {
+                    const pm = getPowerupManager();
+                    pm.spawnPowerup(tile.row, tile.col);
+                } catch (err) {
+                    console.error('Error spawning powerup:', err);
+                }
             }
 
             // B. DAMAGE PLAYER if standing on fire tile
