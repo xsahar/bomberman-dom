@@ -65,7 +65,7 @@ window.addEventListener('load', () => {
 
         // --- NEW: Initialize Bomb Logic ---
         const bombPlacer = new BombPlacement();
-        const explosionSystem = new ExplosionSystem();
+        const explosionSystem = new ExplosionSystem(bombPlacer);
 
         // 4. Input Listener for Bombs (Spacebar)
         window.addEventListener('keydown', (e) => {
@@ -85,14 +85,14 @@ window.addEventListener('load', () => {
 
                 // B. If successful, set the fuse!
                 if (newBomb) {
-                    setTimeout(() => {
+                    newBomb.timerId = setTimeout(() => {
                         // C. Trigger Explosion after 3 seconds
                         const state = store.getState();
                         const mapData = state.map.data;
                         console.log(`💥 Explosion triggered for bomb ${newBomb.id}`);
-                        bombPlacer.removeBomb(newBomb.id, newBomb.element); // Remove bomb from DOM
-                        explosionSystem.triggerExplosion(newBomb, mapData, player); // Pass bomb, map, and player
-                    }, 3000); 
+                        const removed = bombPlacer.removeBomb(newBomb.id, newBomb.element); // Remove bomb from DOM
+                        explosionSystem.triggerExplosion(removed || newBomb, mapData, player); // Pass bomb, map, and player
+                    }, bombPlacer.BOMB_TIMER); 
                 }
             }
         });

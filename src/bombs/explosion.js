@@ -2,6 +2,9 @@ import { store } from '../../framework/index.js';
 import { getPowerupManager } from '../utils/helpers.js';
 
 export class ExplosionSystem {
+    constructor(bombManager = null) {
+        this.bombManager = bombManager; // used for chain reactions
+    }
     
     /**
      * Triggered when the timer runs out. Handles destruction and damage.
@@ -17,8 +20,21 @@ export class ExplosionSystem {
         // 1. CALCULATE FIRE PATH (The "+" Shape)
         const affectedTiles = this.calculateExplosionRange(bomb, mapData);
 
+        const triggeredBombs = [];
+
         // 2. PROCESS DESTRUCTION & DAMAGE
         affectedTiles.forEach(tile => {
+            // A0. CHAIN REACTION: If fire hits another bomb, detonate it immediately
+            if (this.bombManager) {
+                const hitBomb = this.bombManager.getBombAt(tile.row, tile.col);
+                if (hitBomb && !hitBomb.exploded) {
+                    const detonated = this.bombManager.detonateBomb(hitBomb);
+                    if (detonated) {
+                        triggeredBombs.push(detonated);
+                    }
+                }
+            }
+
             // A. DESTROY SOFT BLOCKS
             if (mapData[tile.row][tile.col].type === 'block') {
                 mapData[tile.row][tile.col].type = 'empty';
@@ -47,6 +63,11 @@ export class ExplosionSystem {
                     }
                 }
             }
+        });
+
+        // Chain trigger any bombs we just hit
+        triggeredBombs.forEach(chainBomb => {
+            this.triggerExplosion(chainBomb, mapData, player);
         });
 
         // 3. CREATE EXPLOSION VISUALS

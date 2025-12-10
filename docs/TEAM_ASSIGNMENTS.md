@@ -14,10 +14,10 @@
 - ✅ Player movement (Arrow keys with collision detection)
 - ✅ Keyboard input handling (preventing default scroll behavior)
 - ✅ 3 lives system and respawn logic
-- ✅ Lobby with nickname input and player counter
-- ✅ Game start countdown (20s wait + 10s countdown)
-- ✅ Game flow management (start/end conditions)
-- ✅ UI for player info, lives display, and timers
+- ❌ Lobby with nickname input and player counter
+- ❌ Game start countdown (20s wait + 10s countdown)
+- ❌ Game flow management (start/end conditions)
+- ❌ UI for player info, lives display, and timers
 
 ---
 
@@ -34,7 +34,7 @@
 - ✅ Ensure corner spawn areas are safe (3x3 zones)
 - ✅ Power-up generation (Bombs, Flames, Speed)
 - ✅ Power-up collection and effects
-- ✅ Map reset/transition handling
+- ❌ Map reset/transition handling
 
 ---
 
@@ -64,12 +64,12 @@
 - `server/websocketServer.js` - WebSocket server implementation
 
 ### Key Responsibilities:
-- ✅ WebSocket server setup (Node.js)
-- ✅ Real-time player synchronization
-- ✅ Chat system with message broadcasting
-- ✅ Player connect/disconnect handling
-- ✅ Game state synchronization across clients
-- ✅ Lobby management on server side
+- ❌ WebSocket server setup (Node.js)
+- ❌ Real-time player synchronization
+- ❌ Chat system with message broadcasting
+- ❌ Player connect/disconnect handling
+- ❌ Game state synchronization across clients
+- ❌ Lobby management on server side
 
 ---
 
@@ -82,13 +82,13 @@
 - Review and optimize all other files
 
 ### Key Responsibilities:
-- ✅ 60fps optimization using requestAnimationFrame
-- ✅ Performance monitoring and measurement
-- ✅ Frame rate stability and no frame drops
-- ✅ Memory management and optimization
-- ✅ Final debugging and testing
-- ✅ Integration testing of all systems
-- ✅ Cross-browser compatibility
+- ❌ 60fps optimization using requestAnimationFrame
+- ❌ Performance monitoring and measurement
+- ❌ Frame rate stability and no frame drops
+- ❌ Memory management and optimization
+- ❌ Final debugging and testing
+- ❌ Integration testing of all systems
+- ❌ Cross-browser compatibility
 
 ---
 

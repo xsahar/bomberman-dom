@@ -50,7 +50,9 @@ export class BombPlacement {
             col: col,
             range: player.bombRange || 1,   // Default range is 1 (upgradable later)
             timer: this.BOMB_TIMER,
-            element: null                   // Will hold the DOM element
+            element: null,                  // Will hold the DOM element
+            timerId: null,                  // Fuse timer handle (for chain reactions)
+            exploded: false                 // Guard against double-detonation
         };
 
         // 6. CREATE DOM ELEMENT FOR BOMB
@@ -76,11 +78,37 @@ export class BombPlacement {
 
     // Remove bomb from DOM and local tracking
     removeBomb(bombId, bombElement) {
-        if (bombElement) {
-            bombElement.remove(); // Remove from DOM
+        const bomb = this.activeBombs.find(b => b.id === bombId);
+        if (!bomb) return null;
+
+        // Clear any pending fuse to avoid late triggers
+        if (bomb.timerId) {
+            clearTimeout(bomb.timerId);
+            bomb.timerId = null;
         }
+
+        // Remove visual
+        if (bombElement) {
+            bombElement.remove();
+        } else if (bomb.element) {
+            bomb.element.remove();
+        }
+
         // Remove from local tracking
         this.activeBombs = this.activeBombs.filter(b => b.id !== bombId);
         console.log(`💥 Bomb ${bombId} removed`);
+        return bomb;
+    }
+
+    // Find an active bomb at a grid position
+    getBombAt(row, col) {
+        return this.activeBombs.find(b => b.row === row && b.col === col);
+    }
+
+    // Detonate immediately (for chain reactions); returns the bomb data if found
+    detonateBomb(bomb) {
+        if (!bomb || bomb.exploded) return null;
+        bomb.exploded = true;
+        return this.removeBomb(bomb.id, bomb.element);
     }
 }
