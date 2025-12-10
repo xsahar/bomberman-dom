@@ -104,8 +104,8 @@ export function renderWithDiff(newVNode, oldVNode, container){
     }
 
     // Diff and patch the changes 
-    const patches = diff(oldVNode, newVNode)
-    patches(container.firstChild, patches);
+    const patches = diff(oldVNode, newVNode);
+    patch(container.firstChild, patches);
 }
 
 // Compare two virtual DOM trees and find differences

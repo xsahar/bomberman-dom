@@ -26,11 +26,14 @@ export class ExplosionSystem {
             // B. DAMAGE PLAYER if standing on fire tile
             if (player && player.row === tile.row && player.col === tile.col) {
                 console.log(`😵 Player took damage!`);
-                player.lives = (player.lives || 3) - 1;
-                
-                if (player.lives <= 0) {
-                    console.log(`💀 Game Over! Player has no lives left.`);
-                    player.dead = true;
+                if (typeof player.applyDamage === 'function') {
+                    player.applyDamage(1);
+                } else {
+                    player.lives = (player.lives || 3) - 1;
+                    if (player.lives <= 0) {
+                        console.log(`💀 Game Over! Player has no lives left.`);
+                        player.dead = true;
+                    }
                 }
             }
         });

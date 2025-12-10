@@ -16,11 +16,16 @@ export class Player {
         this.lives = 3;          // Audit Requirement: Start with 3 lives
         this.maxBombs = 1;       // Max bombs allowed at once
         this.bombRange = 1;      // Explosion range
+        this.dead = false;       // Track death state
+
+        // Remember starting spawn for respawns
+        this.spawnRow = 1;
+        this.spawnCol = 1;
 
         // --- 2. Set initial position (top-left safe zone) ---
         // Start at tile (1,1)
-        this.row = 1; 
-        this.col = 1;
+        this.row = this.spawnRow; 
+        this.col = this.spawnCol;
         
         // Convert Grid (1,1) to Pixels for the visual position
         this.x = (this.col * TILE_SIZE) + OFFSET; 
@@ -63,6 +68,8 @@ export class Player {
 
     // Called every frame to update player movement
     update() {
+        if (this.dead) return; // No movement when dead
+
         let dx = 0;
         let dy = 0;
 
@@ -142,6 +149,66 @@ export class Player {
     // Update the player's position visually using CSS transform
     render() {
         this.element.style.transform = `translate(${this.x}px, ${this.y}px)`;
+    }
+
+    // Apply incoming damage (used by explosions)
+    applyDamage(amount = 1) {
+        if (this.dead) return;
+
+        this.lives = Math.max(0, (this.lives || 0) - amount);
+        this.flashHit();
+
+        if (this.lives <= 0) {
+            this.die();
+        } else {
+            this.respawnAtSpawn();
+        }
+    }
+
+    // Brief visual feedback for damage
+    flashHit() {
+        if (!this.element) return;
+        const originalOpacity = this.element.style.opacity || '1';
+        this.element.classList.add('player-hit');
+        this.element.style.opacity = '0.5';
+        setTimeout(() => {
+            if (this.element) {
+                this.element.classList.remove('player-hit');
+                this.element.style.opacity = originalOpacity;
+            }
+        }, 250);
+    }
+
+    // Handle death: mark dead, stop input, remove from DOM
+    die() {
+        this.dead = true;
+        this.keys = {};
+        if (this.element) {
+            this.element.classList.add('player-dead');
+            this.element.style.opacity = '0.35';
+            this.element.remove();
+        }
+    }
+
+    // Move the player back to the starting corner when hit but still alive
+    respawnAtSpawn() {
+        // Reset grid position
+        this.row = this.spawnRow;
+        this.col = this.spawnCol;
+
+        // Reset pixel position
+        this.x = (this.col * TILE_SIZE) + OFFSET;
+        this.y = (this.row * TILE_SIZE) + OFFSET;
+
+        // Ensure the element is in the DOM (in case it was removed externally)
+        if (this.element && !document.body.contains(this.element)) {
+            const mapContainer = document.querySelector('.map');
+            if (mapContainer) {
+                mapContainer.appendChild(this.element);
+            }
+        }
+
+        this.render();
     }
 
     // Sync the player's grid position with the global store

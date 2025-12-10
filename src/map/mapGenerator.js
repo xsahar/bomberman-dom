@@ -94,16 +94,12 @@ export class MapGenerator {
         const lastRow = this.rows - 1;
         const lastCol = this.cols - 1;
 
-        // --------------------- UPDATED SECTION ---------------------
-        // Expanded to 3 (indices 1, 2, 3) to create a literal 3x3 playable area.
-        // Previous value was 2, which only gave a 2x2 playable area.
         const safeDist = 3; 
 
         const inTopLeft = row <= safeDist && col <= safeDist;
         const inTopRight = row <= safeDist && col >= lastCol - safeDist;
         const inBottomLeft = row >= lastRow - safeDist && col <= safeDist;
         const inBottomRight = row >= lastRow - safeDist && col >= lastCol - safeDist;
-        // -----------------------------------------------------------
 
         return inTopLeft || inTopRight || inBottomLeft || inBottomRight;
     }
