@@ -40,17 +40,21 @@ export class MapGenerator {
         return this.map;
     }
 
-    createEmptyMap() {
-        this.map = [];
-        for (let row = 0; row < this.rows; row++) {
-            const rowArr = [];
-            for (let col = 0; col < this.cols; col++) {
-                // Initialize every cell as an object
-                rowArr.push({ type: 'empty' }); 
-            }
-            this.map.push(rowArr);
+ createEmptyMap() {
+    this.map = [];  // Start with empty array
+    
+    // Outer Loop: Go through each ROW (0 to 12)
+    for (let row = 0; row < this.rows; row++) {
+        const rowArr = [];  // Create a new row
+        
+        // Inner Loop: Go through each COLUMN in this row (0 to 14)
+        for (let col = 0; col < this.cols; col++) {
+            rowArr.push({ type: 'empty' });  // Add empty cell
         }
+        
+        this.map.push(rowArr);  // Add completed row to map
     }
+}
 
     placeWalls() {
         for (let row = 0; row < this.rows; row++) {

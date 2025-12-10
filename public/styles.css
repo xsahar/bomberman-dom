@@ -212,3 +212,40 @@ body {
     background-position: center;
     transition: transform 0.1s linear; 
 }
+
+/* Bomb Entity */
+.bomb {
+    position: absolute;
+    width: 32px;
+    height: 32px;
+    z-index: 9;
+    background-image: url('assets/Bomberman-bomb.webp');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.8);
+}
+
+/* Explosion Entity */
+.explosion {
+    position: absolute;
+    width: 40px;
+    height: 40px;
+    background: #FF8C00;
+    z-index: 5;
+    animation: explode 0.5s ease-out;
+}
+
+@keyframes explode {
+    0% {
+        background: #FFD700;
+        transform: scale(1);
+    }
+    50% {
+        background: #FF8C00;
+    }
+    100% {
+        background: rgba(255, 140, 0, 0);
+        transform: scale(0.8);
+    }
+}

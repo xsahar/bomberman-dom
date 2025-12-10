@@ -1,36 +1,38 @@
-// Person 1: Player Mechanics & Movement
-// Player class and basic player functionality
-// TODO: Implement Player class with properties and methods for player management
-
-// Requirements:
-// - Player constructor with id, nickname, position, color
-// - Lives management (3 lives)
-// - Movement properties (speed, position)
-// - Power-up properties (bombs, flames, speed)
-// - Methods: move(), takeDamage(), die(), respawn(), addPowerup(), render()
-
+// Import the global state manager from the framework
 import { store } from '../../framework/index.js';
 
-// CONFIG: UPDATED TO 40px TO MATCH CSS
-const TILE_SIZE = 40;       
-const PLAYER_SIZE = 32;     
-const OFFSET = (TILE_SIZE - PLAYER_SIZE) / 2; // = 4px
-const SPEED = 4;
+// --- Player visual and movement configuration ---
+const TILE_SIZE = 40;       // Size of each map tile in pixels
+const PLAYER_SIZE = 32;     // Size of the player sprite in pixels
+const OFFSET = (TILE_SIZE - PLAYER_SIZE) / 2; // Center player in tile
+const SPEED = 4;            // Movement speed (pixels per frame)
 
 export class Player {
     constructor() {
         console.log("🤖 Player Constructor Started...");
 
-        // 1. POSITION: Start at Tile (1,1)
-        this.x = TILE_SIZE + OFFSET; 
-        this.y = TILE_SIZE + OFFSET;
+        // --- 1. Initialize Player Data (REQUIRED FOR BOMBS) ---
+        this.id = 'p1';          // ID to track who owns the bomb
+        this.lives = 3;          // Audit Requirement: Start with 3 lives
+        this.maxBombs = 1;       // Max bombs allowed at once
+        this.bombRange = 1;      // Explosion range
+
+        // --- 2. Set initial position (top-left safe zone) ---
+        // Start at tile (1,1)
+        this.row = 1; 
+        this.col = 1;
+        
+        // Convert Grid (1,1) to Pixels for the visual position
+        this.x = (this.col * TILE_SIZE) + OFFSET; 
+        this.y = (this.row * TILE_SIZE) + OFFSET;
+
         console.log(`📍 Initial Position calculated: x=${this.x}, y=${this.y}`);
-        
-        // 2. VISUALS: Create the HTML element
-        this.element = document.createElement('div');
-        this.element.className = 'player'; 
-        
-        // Safety Check: Find the map
+
+        // --- 3. Create player DOM element ---
+        this.element = document.createElement('div'); // Create a div for the player
+        this.element.className = 'player';            // Assign CSS class for styling
+
+        // --- 4. Attach player to the map container ---
         const mapContainer = document.querySelector('.map');
         if (!mapContainer) {
             console.error("❌ CRITICAL ERROR: .map container missing!");
@@ -39,105 +41,120 @@ export class Player {
         mapContainer.appendChild(this.element);
         console.log("✅ Player element added to DOM");
 
-        // 3. INPUT: Listen for keys
+        // --- 5. Keyboard input handling ---
         this.keys = {};
         window.addEventListener('keydown', e => {
             this.keys[e.key] = true;
-            // Prevent default scrolling for arrow keys and space
             if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) {
                 e.preventDefault();
             }
-            // console.log(`Key Down: ${e.key}`); // Uncomment to test keys
         });
         window.addEventListener('keyup', e => {
             this.keys[e.key] = false;
-            // Prevent default scrolling for arrow keys and space
             if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) {
                 e.preventDefault();
             }
         });
 
-        // 4. SYNC & RENDER
-        // We wrap this in try-catch to prevent crashes from stopping the render
-       this.render(); 
-       console.log("✅ Player Rendered Successfully");
-       
-       try {
-            this.updateStore();    
-        } catch (err) {
-           console.warn("⚠️ Framework Error (ignoring for now):", err);
-        }
+        // --- 6. Initial render ---
+        this.render(); 
+        console.log("✅ Player Rendered Successfully");
     }
 
+    // Called every frame to update player movement
     update() {
         let dx = 0;
         let dy = 0;
 
+        // Check which movement keys are pressed
         if (this.keys['ArrowUp']) dy = -SPEED;
         if (this.keys['ArrowDown']) dy = SPEED;
         if (this.keys['ArrowLeft']) dx = -SPEED;
         if (this.keys['ArrowRight']) dx = SPEED;
 
+        // Only move if a direction key is pressed
         if (dx !== 0 || dy !== 0) {
             this.move(dx, dy);
         }
     }
 
+    // Attempt to move the player by dx, dy
     move(dx, dy) {
         const nextX = this.x + dx;
         const nextY = this.y + dy;
 
+        // Check for collision before moving
         if (!this.checkCollision(nextX, nextY)) {
+            // 1. Update Visual Position (Pixels)
             this.x = nextX;
             this.y = nextY;
-            this.render();
-            // this.updateStore();
+
+            // 2. Update Grid Position (Logic)
+            // This allows the Bomb System to know EXACTLY which tile we are on
+            // We use the center of the player to decide the tile
+            const centerX = this.x + PLAYER_SIZE / 2;
+            const centerY = this.y + PLAYER_SIZE / 2;
+            
+            this.col = Math.floor(centerX / TILE_SIZE);
+            this.row = Math.floor(centerY / TILE_SIZE);
+
+            // 3. Render the change
+            this.render(); 
+
+            // ⚠️ Don't update store every frame - causes framework rendering issues
+            // The bomb system will use this.row and this.col directly from the player object
+            // No need to sync with store on every move 
         }
     }
 
+    // Collision detection: returns true if movement is blocked
     checkCollision(newX, newY) {
         const state = store.getState();
         const mapData = state.map?.data;
         
-        if (!mapData) return true; // Stop if map isn't loaded
+        if (!mapData) return true; // Block movement if map isn't loaded
 
+        // Check all 4 corners of the player's bounding box
         const points = [
-            { x: newX, y: newY },
-            { x: newX + PLAYER_SIZE, y: newY },
-            { x: newX, y: newY + PLAYER_SIZE },
-            { x: newX + PLAYER_SIZE, y: newY + PLAYER_SIZE }
+            { x: newX, y: newY },                              // Top-left
+            { x: newX + PLAYER_SIZE, y: newY },                // Top-right
+            { x: newX, y: newY + PLAYER_SIZE },                // Bottom-left
+            { x: newX + PLAYER_SIZE, y: newY + PLAYER_SIZE }   // Bottom-right
         ];
 
         for (const p of points) {
+            // Convert pixel position to grid coordinates
             const col = Math.floor(p.x / TILE_SIZE);
             const row = Math.floor(p.y / TILE_SIZE);
 
+            // Block movement if out of bounds
             if (row < 0 || col < 0 || row >= 13 || col >= 15) return true;
 
+            // Block movement if cell is a wall or block
             const tile = mapData[row][col];
             if (tile && (tile.type === 'wall' || tile.type === 'block')) {
                 return true; 
             }
         }
-        return false; 
+        return false; // No collision detected
     }
 
+    // Update the player's position visually using CSS transform
     render() {
-        // Force the move using Transform
         this.element.style.transform = `translate(${this.x}px, ${this.y}px)`;
     }
 
+    // Sync the player's grid position with the global store
+    // (Currently unused to prevent Framework Crash)
     updateStore() {
-        const gridX = Math.floor((this.x + PLAYER_SIZE/2) / TILE_SIZE);
-        const gridY = Math.floor((this.y + PLAYER_SIZE/2) / TILE_SIZE);
-
         store.setState({
             activePlayer: {
-                id: 'local',
-                x: gridX,
-                y: gridY,
-                range: 1,
-                maxAmmo: 1
+                id: this.id,
+                col: this.col,   // Corrected variable name
+                row: this.row,   // Corrected variable name
+                lives: this.lives,
+                range: this.bombRange,
+                maxAmmo: this.maxBombs
             }
         });
     }
