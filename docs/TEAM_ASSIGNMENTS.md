@@ -34,7 +34,7 @@
 - ✅ Ensure corner spawn areas are safe (3x3 zones)
 - ✅ Power-up generation (Bombs, Flames, Speed)
 - ✅ Power-up collection and effects
-- ❌ Map reset/transition handling
+- ✅ Map reset/transition handling
 
 ---
 

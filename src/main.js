@@ -4,6 +4,7 @@ import { renderMap } from './ui/mapRenderer.js';
 import { Player } from './player/player.js'; 
 import { BombPlacement } from './bombs/bombPlacement.js';
 import { ExplosionSystem } from './bombs/explosion.js';
+import { resetRound } from './game/gameFlow.js';
 
 function initializeGame() {
     console.log('🎮 Initializing Data...');
@@ -65,7 +66,10 @@ window.addEventListener('load', () => {
 
         // --- NEW: Initialize Bomb Logic ---
         const bombPlacer = new BombPlacement();
-        const explosionSystem = new ExplosionSystem(bombPlacer);
+    const explosionSystem = new ExplosionSystem(bombPlacer);
+
+    // Expose reset helper for manual testing (call from browser console)
+    window.resetRound = () => resetRound({ playersInstances: [player], bombPlacer });
 
         // 4. Input Listener for Bombs (Spacebar)
         window.addEventListener('keydown', (e) => {
