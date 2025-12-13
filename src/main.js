@@ -1,4 +1,6 @@
 import { createApp, h, store } from '../framework/index.js';
+// WebSocket integration and multiplayer UI are handled in `src/multiplayer/`.
+// Keep `main.js` focused on game initialization and rendering to avoid cross-team conflicts.
 import { MapGenerator } from './map/mapGenerator.js';
 import { renderMap } from './ui/mapRenderer.js';
 import { Player } from './player/player.js'; 
@@ -56,6 +58,24 @@ window.addEventListener('load', () => {
     // Get the map container for adding bombs later
     const mapContainer = document.querySelector('.map'); 
     
+        // Multiplayer chat integration (Person 4):
+        (async () => {
+            try {
+                const { default: WebSocketManager } = await import('./multiplayer/websocket.js');
+                const { ChatManager } = await import('./multiplayer/chat.js');
+                // Use nickname from prompt or fallback
+                let nickname = localStorage.getItem('mp_nick') || '';
+                if (!nickname) {
+                    nickname = prompt('Enter your nickname for chat:', 'Player_' + Math.floor(Math.random()*9999)) || 'Player_' + Math.floor(Math.random()*9999);
+                    localStorage.setItem('mp_nick', nickname);
+                }
+                const ws = new WebSocketManager({ host: location.hostname + ':8081' });
+                ws.connect(nickname);
+                new ChatManager(ws);
+                window.mpWS = ws;
+            } catch (err) { console.warn('Multiplayer chat failed to load', err); }
+        })();
+
     // 3. Create Player & Bomb Systems (Wait 100ms to ensure DOM is painted)
     setTimeout(() => {
         console.log('🕹️ Spawning Player...');
@@ -97,6 +117,7 @@ window.addEventListener('load', () => {
                         const removed = bombPlacer.removeBomb(newBomb.id, newBomb.element); // Remove bomb from DOM
                         explosionSystem.triggerExplosion(removed || newBomb, mapData, player); // Pass bomb, map, and player
                     }, bombPlacer.BOMB_TIMER); 
+                // Bomb placement handled locally and by bomb system; network sync belongs to multiplayer module.
                 }
             }
         });
@@ -110,4 +131,6 @@ window.addEventListener('load', () => {
         gameLoop();
         console.log("✅ Game Loop Started");
     }, 100);
+
+    // No multiplayer wiring here to avoid altering game flow code — use the /src/multiplayer modules instead.
 });

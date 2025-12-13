@@ -64,10 +64,10 @@
 - `server/websocketServer.js` - WebSocket server implementation
 
 ### Key Responsibilities:
-- ❌ WebSocket server setup (Node.js)
+- ✅ WebSocket server setup (Node.js)
 - ❌ Real-time player synchronization
-- ❌ Chat system with message broadcasting
-- ❌ Player connect/disconnect handling
+- ✅ Chat system with message broadcasting
+- ✅ Player connect/disconnect handling
 - ❌ Game state synchronization across clients
 - ❌ Lobby management on server side
 
