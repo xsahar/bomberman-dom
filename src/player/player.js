@@ -8,6 +8,11 @@ const PLAYER_SIZE = 32;     // Size of the player sprite in pixels
 const OFFSET = (TILE_SIZE - PLAYER_SIZE) / 2; // Center player in tile
 const SPEED = 4;            // Movement speed (pixels per frame)
 
+// --- Sprite Sheet Configuration ---
+// 2x2 grid: [Down, Right] / [Up, Left]
+const SPRITE_COLS = 2;      // 2 columns (Down/Right, Up/Left)
+const SPRITE_ROWS = 2;      // 2 rows
+
 export class Player {
     constructor() {
         console.log("🤖 Player Constructor Started...");
@@ -64,7 +69,11 @@ export class Player {
             }
         });
 
-        // --- 6. Initial render ---
+        // --- 6. Animation state for sprite sheet ---
+        this.direction = 0;      // 0=down, 1=left, 2=right, 3=up
+        this.isMoving = false;   // Track if player is currently moving
+
+        // --- 7. Initial render ---
         this.render(); 
         console.log("✅ Player Rendered Successfully");
     }
@@ -77,10 +86,22 @@ export class Player {
         let dy = 0;
 
         // Check which movement keys are pressed
-        if (this.keys['ArrowUp']) dy = -this.speed;
-        if (this.keys['ArrowDown']) dy = this.speed;
-        if (this.keys['ArrowLeft']) dx = -this.speed;
-        if (this.keys['ArrowRight']) dx = this.speed;
+        if (this.keys['ArrowUp']) {
+            dy = -this.speed;
+            this.direction = 3; // Up
+        }
+        if (this.keys['ArrowDown']) {
+            dy = this.speed;
+            this.direction = 0; // Down
+        }
+        if (this.keys['ArrowLeft']) {
+            dx = -this.speed;
+            this.direction = 1; // Left
+        }
+        if (this.keys['ArrowRight']) {
+            dx = this.speed;
+            this.direction = 2; // Right
+        }
 
         // Only move if a direction key is pressed
         if (dx !== 0 || dy !== 0) {
@@ -164,9 +185,21 @@ export class Player {
         return false; // No collision detected
     }
 
-    // Update the player's position visually using CSS transform
+    // Update the player's position visually using CSS transform and sprite direction
     render() {
+        // Map direction to sprite sheet position (2x2 grid)
+        // [Down, Right] / [Up, Left]
+        const directionMap = {
+            0: { x: 0, y: 0 },     // Down (top-left)
+            1: { x: 100, y: 0 },   // Left (top-right)
+            2: { x: 100, y: 100 }, // Right (bottom-right)
+            3: { x: 0, y: 100 }    // Up (bottom-left)
+        };
+
+        const pos = directionMap[this.direction] || directionMap[0];
+
         this.element.style.transform = `translate(${this.x}px, ${this.y}px)`;
+        this.element.style.backgroundPosition = `${pos.x}% ${pos.y}%`;
     }
 
     // Apply incoming damage (used by explosions)
