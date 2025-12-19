@@ -338,17 +338,16 @@ body {
 /* Player Entity */
 .player {
     position: absolute;
-    width: 32px;   /* <--- Smaller than the tile (so he fits inside) */
+    width: 32px;
     height: 32px;
     z-index: 10;
     top: 0;
     left: 0;
-    
-    background-image: url('assets/player.png'); 
-    background-size: contain;
+    background-image: url('assets/player-direction.JPG');
+    background-size: 200% 200%;
     background-repeat: no-repeat;
-    background-position: center;
-    transition: transform 0.1s linear; 
+    background-position: 0% 0%;
+    transition: transform 0.1s linear;
 }
 
 /* Bomb Entity */
