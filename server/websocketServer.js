@@ -25,10 +25,12 @@ function ensureLobby(name = 'main') {
       players: new Map(), // id => { id, nickname }
       chatHistory: [],
       gameState: { state: 'lobby' },
+      sharedMap: null, // Store first player's map to share with others
       // Lobby timing & configuration
       _waitTimer: null,
       _countdownInterval: null,
       _countdownTimer: null,
+      _stateSyncTimer: null,
       minPlayers: 2,
       maxPlayers: 4,
       waitDurationMs: 20 * 1000, // 20 seconds before countdown
@@ -55,6 +57,19 @@ function cleanupLobbyTimers(lobby) {
   if (lobby._waitTimer) { clearTimeout(lobby._waitTimer); lobby._waitTimer = null; }
   if (lobby._countdownTimer) { clearTimeout(lobby._countdownTimer); lobby._countdownTimer = null; }
   if (lobby._countdownInterval) { clearInterval(lobby._countdownInterval); lobby._countdownInterval = null; }
+  if (lobby._stateSyncTimer) { clearTimeout(lobby._stateSyncTimer); lobby._stateSyncTimer = null; }
+}
+
+// Throttled state sync broadcast (avoids spamming on every action)
+function scheduleStateSync(lobbyName, delayMs = 250) {
+  const lobby = lobbies.get(lobbyName);
+  if (!lobby) return;
+  if (lobby._stateSyncTimer) return; // already scheduled
+  lobby._stateSyncTimer = setTimeout(() => {
+    lobby._stateSyncTimer = null;
+    const payload = lobby.gameState || {};
+    broadcastToLobby(lobbyName, { type: 'stateSync', payload });
+  }, delayMs);
 }
 
 // Start the 10s countdown and broadcast periodic updates
@@ -81,6 +96,10 @@ function startGameForLobby(lobbyName) {
   if (!lobby) return;
   lobby.gameState = { state: 'playing', startedAt: Date.now() };
   broadcastToLobby(lobbyName, { type: 'lobbyState', payload: { players: Array.from(lobby.players.values()).map(p => ({ id: p.id, nickname: p.nickname })), gameState: lobby.gameState } });
+  // Broadcast shared map to all players at game start
+  if (lobby.sharedMap) {
+    broadcastToLobby(lobbyName, { type: 'mapSync', payload: lobby.sharedMap });
+  }
 }
 
 function evaluateLobbyStart(lobbyName) {
@@ -113,16 +132,43 @@ wss.on('connection', (ws, req) => {
   console.log('client connected');
   // Assign a short unique id
   ws.id = Math.random().toString(36).slice(2, 9);
-  // default lobby
-  ws.lobby = 'main';
+  
+  // Find an available lobby (not playing) or create a new one
+  let lobbyName = 'main';
+  let lobbyIndex = 1;
+  while (true) {
+    const existingLobby = lobbies.get(lobbyName);
+    if (!existingLobby || existingLobby.gameState.state !== 'playing') {
+      break; // Found available lobby
+    }
+    // Try next lobby
+    lobbyName = `main-${lobbyIndex++}`;
+  }
+  
+  ws.lobby = lobbyName;
   const lobby = ensureLobby(ws.lobby);
+  console.log(`[LOBBY] Assigned ${ws.id} to lobby: ${lobbyName}`);
 
   function removePlayer() {
     const l = lobbies.get(ws.lobby);
     if (!l) return;
     if (l.players.has(ws.id)) {
       l.players.delete(ws.id);
-      broadcastToLobby(ws.lobby, { type: 'playerLeft', payload: { id: ws.id } });
+      // clean up gameState for this player
+      if (l.gameState && l.gameState.players && l.gameState.players[ws.id]) {
+        delete l.gameState.players[ws.id];
+      }
+      // Broadcast updated lobby state to all remaining players
+      broadcastToLobby(ws.lobby, { type: 'lobbyState', payload: { players: Array.from(l.players.values()).map(p => ({ id: p.id, nickname: p.nickname })), gameState: l.gameState } });
+      // push an updated state snapshot after removal
+      scheduleStateSync(ws.lobby, 50);
+      
+      // If lobby is empty and game finished, clean it up
+      if (l.players.size === 0 && l.gameState.state === 'playing') {
+        cleanupLobbyTimers(l);
+        lobbies.delete(ws.lobby);
+        console.log(`[LOBBY] Deleted empty lobby: ${ws.lobby}`);
+      }
     }
   }
 
@@ -138,15 +184,12 @@ wss.on('connection', (ws, req) => {
       lobby.players.set(ws.id, { id: ws.id, nickname: ws.nickname, ws });
       //send the client his assigned id
       ws.send(JSON.stringify({ type: 'joined', payload: { id: ws.id, nickname: ws.nickname } }));
-      // send lobby state and chat history
-      ws.send(JSON.stringify({ type: 'lobbyState', payload: { players: Array.from(lobby.players.values()).map(p => ({ id: p.id, nickname: p.nickname })), gameState: lobby.gameState } }));
-      if (lobby.chatHistory.length) {
-        ws.send(JSON.stringify({ type: 'chatHistory', payload: lobby.chatHistory }));
-      }
-      // broadcast to others
-      broadcastToLobby(ws.lobby, { type: 'playerJoined', payload: { id: ws.id, nickname: ws.nickname } });
+      // send a state sync snapshot for late joiners
+      ws.send(JSON.stringify({ type: 'stateSync', payload: lobby.gameState }));
       // log join event
       console.log(`[LOBBY] Player joined: ${ws.nickname} (${ws.id}) | Total: ${lobby.players.size}`);
+      // broadcast updated lobby state to ALL players (including the one who just joined)
+      broadcastToLobby(ws.lobby, { type: 'lobbyState', payload: { players: Array.from(lobby.players.values()).map(p => ({ id: p.id, nickname: p.nickname })), gameState: lobby.gameState } });
       // evaluate lobby start logic
       evaluateLobbyStart(ws.lobby);
       return;
@@ -184,6 +227,8 @@ wss.on('connection', (ws, req) => {
       }
       // broadcast action to clients
       broadcastToLobby(ws.lobby, out);
+      // schedule a synced snapshot so late joiners catch up
+      scheduleStateSync(ws.lobby);
       return;
     }
 
@@ -191,6 +236,17 @@ wss.on('connection', (ws, req) => {
     if (msg.type === 'stateSync' && msg.payload) {
       lobby.gameState = msg.payload;
       broadcastToLobby(ws.lobby, { type: 'stateSync', payload: msg.payload });
+      return;
+    }
+
+    // Map sync - first player sends their map to be shared
+    if (msg.type === 'mapSync' && msg.payload) {
+      if (!lobby.sharedMap) {
+        lobby.sharedMap = msg.payload;
+        console.log(`[LOBBY] Received shared map from ${ws.nickname}`);
+        // broadcast to all other players
+        broadcastToLobby(ws.lobby, { type: 'mapSync', payload: msg.payload });
+      }
       return;
     }
   });

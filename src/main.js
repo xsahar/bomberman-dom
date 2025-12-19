@@ -63,6 +63,9 @@ window.addEventListener('load', () => {
             try {
                 const { default: WebSocketManager } = await import('./multiplayer/websocket.js');
                 const { ChatManager } = await import('./multiplayer/chat.js');
+                const { default: RemotePlayersManager } = await import('./multiplayer/remotePlayers.js');
+                const { default: LobbyUI } = await import('./multiplayer/lobby.js');
+                
                 // Use nickname from prompt or fallback
                 let nickname = localStorage.getItem('mp_nick') || '';
                 if (!nickname) {
@@ -70,10 +73,50 @@ window.addEventListener('load', () => {
                     localStorage.setItem('mp_nick', nickname);
                 }
                 const ws = new WebSocketManager({ host: location.hostname + ':8081' });
+                
+                let gameStarted = false;
+                const lobby = new LobbyUI({ 
+                    wsManager: ws, 
+                    onGameStart: () => {
+                        if (gameStarted) return;
+                        gameStarted = true;
+                        // Initialize player and game when game starts
+                        setTimeout(() => initPlayer(), 100);
+                    }
+                });
+                
                 ws.connect(nickname);
                 new ChatManager(ws);
+                const rpm = new RemotePlayersManager({ wsManager: ws, mapContainer });
+                
+                // Send our generated map to server for sharing
+                ws.on('joined', () => {
+                    const state = store.getState();
+                    if (state.map && state.map.data) {
+                        ws.send({ type: 'mapSync', payload: { data: state.map.data, rows: state.map.rows, cols: state.map.cols } });
+                    }
+                });
+                
+                // Receive shared map from server (for 2nd+ players)
+                ws.on('mapSync', (payload) => {
+                    if (payload && payload.data) {
+                        console.log('📍 Received shared map from server');
+                        store.setState({ map: { data: payload.data, rows: payload.rows || 13, cols: payload.cols || 15 } });
+                        // Re-render with the new map
+                        app.render();
+                    }
+                });
+                
+                // Wire server events
+                ws.on('playerJoined', (p) => p && rpm.addPlayer(p));
+                ws.on('playerLeft', (p) => p && rpm.removePlayer(p.id));
+                ws.on('action', (a) => rpm.handleAction(a));
+                ws.on('stateSync', (s) => rpm.syncState(s));
+                // Initial lobbyState may contain players
+                ws.on('lobbyState', (s) => { if (s && s.players) s.players.forEach(p => rpm.addPlayer(p)); });
                 window.mpWS = ws;
-            } catch (err) { console.warn('Multiplayer chat failed to load', err); }
+                window.mpRPM = rpm;
+            } catch (err) { console.warn('Multiplayer chat/players failed to load', err); }
         })();
 
     // 3. Create Player & Bomb Systems (Wait 100ms to ensure DOM is painted)

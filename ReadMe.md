@@ -1,4 +1,28 @@
 bomberman-dom
+Multiplayer Bomberman game with real-time chat using WebSockets.
+
+## Quick Start
+
+1. **Install dependencies:**
+   ```bash
+   npm install
+   ```
+
+2. **Start the WebSocket server (Terminal 1):**
+   ```bash
+   npm start
+   ```
+
+3. **Start the game server (Terminal 2):**
+   ```bash
+   npm run serve
+   ```
+
+4. **Open the game:**
+   - Go to `http://localhost:8080/public/index.html` in your browser
+
+
+## Project Overview
 You certainly know bomberman right? Good good. You will make it. Relax, is not that hard, it is only a multiplayer version of it. Ah and forgot to mention that you will need to do it using the framework you created a while ago. Let me explain.
 
 Objectives

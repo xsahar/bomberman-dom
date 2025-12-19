@@ -132,6 +132,11 @@ export class Player {
             // 3. Render the change
             this.render(); 
 
+            // 4. Broadcast position to other players (Person 4: multiplayer sync)
+            if (window.mpWS && window.mpWS.ws && window.mpWS.ws.readyState === 1) {
+                window.mpWS.sendAction({ type: 'move', row: this.row, col: this.col, x: this.x, y: this.y });
+            }
+
             // ⚠️ Don't update store every frame - causes framework rendering issues
             // The bomb system will use this.row and this.col directly from the player object
             // No need to sync with store on every move 

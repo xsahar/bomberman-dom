@@ -338,16 +338,17 @@ body {
 /* Player Entity */
 .player {
     position: absolute;
-    width: 32px;
+    width: 32px;   /* <--- Smaller than the tile (so he fits inside) */
     height: 32px;
     z-index: 10;
     top: 0;
     left: 0;
-    background-image: url('assets/player-direction.JPG');
-    background-size: 200% 200%;
+    
+    background-image: url('assets/player.png'); 
+    background-size: contain;
     background-repeat: no-repeat;
-    background-position: 0% 0%;
-    transition: transform 0.1s linear;
+    background-position: center;
+    transition: transform 0.1s linear; 
 }
 
 /* Bomb Entity */
@@ -385,4 +386,87 @@ body {
         background: rgba(255, 140, 0, 0);
         transform: scale(0.8);
     }
+}
+
+/* Lobby Overlay */
+#lobby-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.95);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
+.lobby-container {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 20px;
+    padding: 40px;
+    max-width: 500px;
+    width: 90%;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    text-align: center;
+}
+
+.lobby-container h1 {
+    margin: 0 0 30px 0;
+    font-size: 2.5em;
+    color: white;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.lobby-content {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 15px;
+    padding: 30px;
+    backdrop-filter: blur(10px);
+}
+
+.player-list h3 {
+    margin: 0 0 15px 0;
+    color: #fff;
+    font-size: 1.3em;
+}
+
+#lobby-players {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 30px;
+}
+
+.lobby-player {
+    background: rgba(255, 255, 255, 0.2);
+    padding: 12px 20px;
+    border-radius: 10px;
+    color: white;
+    font-size: 1.1em;
+    font-weight: bold;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.lobby-status {
+    margin-top: 20px;
+}
+
+#lobby-message {
+    font-size: 1.2em;
+    color: white;
+    margin-bottom: 15px;
+    font-weight: bold;
+}
+
+#lobby-countdown {
+    font-size: 3em;
+    color: #ffd700;
+    font-weight: bold;
+    text-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+    min-height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }

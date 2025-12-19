@@ -52,34 +52,8 @@ export class ChatManager {
   _setupHandlers() {
     // When a chat received from ws
     this.wsManager.on('chat', (payload) => this.displayMessage(payload.author, payload.text, payload.ts, payload.id));
-    this.wsManager.on('chatHistory', (arr) => { arr.forEach(m => this.displayMessage(m.author, m.text, m.ts, m.id)); });
     this.wsManager.on('joined', (payload) => { this.meId = payload && payload.id; });
     this.wsManager.on('disconnected', () => { this.meId = null; });
-    // Show join/leave events as system messages
-    this.wsManager.on('playerJoined', (payload) => {
-      if (payload && payload.nickname) {
-        this.displaySystemMessage(`${escapeHtml(payload.nickname)} joined the lobby.`);
-      }
-    });
-    this.wsManager.on('playerLeft', (payload) => {
-      if (payload && payload.id) {
-        // Try to show nickname if possible
-        const leftPlayer = (this.wsManager._playersList || []).find(p => p.id === payload.id);
-        const name = leftPlayer ? leftPlayer.nickname : payload.id;
-        this.displaySystemMessage(`${escapeHtml(name)} left the lobby.`);
-      }
-    });
-    // Optionally, keep a local player list for better left messages
-    this.wsManager.on('lobbyState', (payload) => {
-      if (payload && payload.players) this.wsManager._playersList = payload.players;
-    });
-  }
-  displaySystemMessage(text) {
-    const el = document.createElement('div');
-    el.className = 'msg system-msg';
-    el.innerHTML = `<span class="system">${text}</span>`;
-    this.messagesEl.appendChild(el);
-    this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
   }
 
   _onSend() {

@@ -68,6 +68,9 @@ export class WebSocketManager {
         case 'stateSync':
           this._dispatch('stateSync', data.payload);
           break;
+        case 'mapSync':
+          this._dispatch('mapSync', data.payload);
+          break;
         default:
           this._dispatch('message', data);
       }
