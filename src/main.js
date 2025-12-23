@@ -1,179 +1,204 @@
 import { createApp, h, store } from '../framework/index.js';
 // WebSocket integration and multiplayer UI are handled in `src/multiplayer/`.
-// Keep `main.js` focused on game initialization and rendering to avoid cross-team conflicts.
 import { MapGenerator } from './map/mapGenerator.js';
 import { renderMap } from './ui/mapRenderer.js';
 import { Player } from './player/player.js'; 
 import { BombPlacement } from './bombs/bombPlacement.js';
 import { ExplosionSystem } from './bombs/explosion.js';
 import { resetRound } from './game/gameFlow.js';
+import { LivesUI } from './player/lives.js';
 
+let player; // Global reference for player
+let bombPlacer;
+let explosionSystem;
+let timerInterval;
+
+// Initialize map and global game state
 function initializeGame() {
     console.log('🎮 Initializing Data...');
     
-    // 1. Generate the Grid (Walls & Blocks)
     const generator = new MapGenerator();
     const mapData = generator.generateMap();
 
-    // 2. Save Everything to Global Store
     store.setState({ 
         map: { data: mapData, rows: 13, cols: 15 },
-        powerups: [], // Powerups spawn dynamically when blocks are destroyed
+        powerups: [],
         bombs: [],
-        explosions: [], // Needed for the renderer to draw fire
-        gameState: 'lobby'
+        explosions: [],
+        gameState: 'lobby',
+        playerLives: 3,
+        gameTime: 120
     });
     
     return mapData;
 }
 
+// Root component for the framework
 function RootComponent() {
     const state = store.getState();
     const mapData = state.map?.data || [];
     
     return h.div({ className: 'game-root' }, [
         h.h1({}, 'Bomberman Game'),
-        // Draw the map container. If map is empty, show loading text.
+        h.div({ className: 'timer', id: 'game-timer' }, formatTime(state.gameTime || 120)),
         mapData.length > 0 ? renderMap(mapData) : h.div({}, 'Loading map...')
     ]);
+}
+
+// Timer formatting
+function formatTime(seconds) {
+    const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+    const s = (seconds % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+}
+
+// Countdown timer
+function startTimer() {
+    clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+        const state = store.getState();
+        if (state.gameTime <= 0) {
+            clearInterval(timerInterval);
+            alert('⏱️ Time is up!');
+            return;
+        }
+        store.setState({ gameTime: state.gameTime - 1 });
+        document.getElementById('game-timer').textContent = formatTime(store.getState().gameTime);
+    }, 1000);
+}
+
+// Handle player hit and lose lives
+function onPlayerHit() {
+    if (!player || !player.livesUI) return;
+
+    const dead = player.livesUI.loseLife();
+    store.setState({ playerLives: player.livesUI.currentLives });
+
+    if (dead) {
+        alert('💀 You Lost!');
+        player.element.style.opacity = 0.5;
+    }
+}
+
+// Initialize player, bombs, explosions, and lives
+function initPlayer() {
+    console.log('🕹️ Spawning Player...');
+    player = new Player();
+
+  
+
+    bombPlacer = new BombPlacement();
+    explosionSystem = new ExplosionSystem(bombPlacer);
+
+    // Start game loop
+    function gameLoop() {
+        player.update();
+
+        // Check for explosions hitting the player
+        const explosions = store.getState().explosions || [];
+        explosions.forEach(explosion => {
+            if (player.isInExplosion(explosion)) {
+                onPlayerHit();
+            }
+        });
+
+        requestAnimationFrame(gameLoop);
+    }
+    gameLoop();
 }
 
 window.addEventListener('load', () => {
     console.log('✅ Page loaded');
     const container = document.getElementById('app');
-    
     if (!container) {
         console.error("❌ Error: Container #app not found!");
         return;
     }
 
-    // 1. Setup Data (Map & Powerups)
     initializeGame();
-    
-    // 2. Render the Map to the DOM
+
     const app = createApp(RootComponent, container);
     app.connectToStore(store);
     app.render();
-    
-    // Get the map container for adding bombs later
+
     const mapContainer = document.querySelector('.map'); 
-    
-        // Multiplayer chat integration (Person 4):
-        (async () => {
-            try {
-                const { default: WebSocketManager } = await import('./multiplayer/websocket.js');
-                const { ChatManager } = await import('./multiplayer/chat.js');
-                const { default: RemotePlayersManager } = await import('./multiplayer/remotePlayers.js');
-                const { default: LobbyUI } = await import('./multiplayer/lobby.js');
-                
-                // Use nickname from prompt or fallback
-                let nickname = localStorage.getItem('mp_nick') || '';
-                if (!nickname) {
-                    nickname = prompt('Enter your nickname for chat:', 'Player_' + Math.floor(Math.random()*9999)) || 'Player_' + Math.floor(Math.random()*9999);
-                    localStorage.setItem('mp_nick', nickname);
-                }
-                const ws = new WebSocketManager({ host: location.hostname + ':8081' });
-                
-                let gameStarted = false;
-                const lobby = new LobbyUI({ 
-                    wsManager: ws, 
-                    onGameStart: () => {
-                        if (gameStarted) return;
-                        gameStarted = true;
-                        // Initialize player and game when game starts
-                        setTimeout(() => initPlayer(), 100);
-                    }
-                });
-                
-                ws.connect(nickname);
-                new ChatManager(ws);
-                const rpm = new RemotePlayersManager({ wsManager: ws, mapContainer });
-                
-                // Send our generated map to server for sharing
-                ws.on('joined', () => {
-                    const state = store.getState();
-                    if (state.map && state.map.data) {
-                        ws.send({ type: 'mapSync', payload: { data: state.map.data, rows: state.map.rows, cols: state.map.cols } });
-                    }
-                });
-                
-                // Receive shared map from server (for 2nd+ players)
-                ws.on('mapSync', (payload) => {
-                    if (payload && payload.data) {
-                        console.log('📍 Received shared map from server');
-                        store.setState({ map: { data: payload.data, rows: payload.rows || 13, cols: payload.cols || 15 } });
-                        // Re-render with the new map
-                        app.render();
-                    }
-                });
-                
-                // Wire server events
-                ws.on('playerJoined', (p) => p && rpm.addPlayer(p));
-                ws.on('playerLeft', (p) => p && rpm.removePlayer(p.id));
-                ws.on('action', (a) => rpm.handleAction(a));
-                ws.on('stateSync', (s) => rpm.syncState(s));
-                // Initial lobbyState may contain players
-                ws.on('lobbyState', (s) => { if (s && s.players) s.players.forEach(p => rpm.addPlayer(p)); });
-                window.mpWS = ws;
-                window.mpRPM = rpm;
-            } catch (err) { console.warn('Multiplayer chat/players failed to load', err); }
-        })();
 
-    // 3. Create Player & Bomb Systems (Wait 100ms to ensure DOM is painted)
-    setTimeout(() => {
-        console.log('🕹️ Spawning Player...');
-        
-        // We instantiate the player. Inside its constructor, 
-        // it will attach itself to the .map div we just rendered.
-        const player = new Player();
-
-        // --- NEW: Initialize Bomb Logic ---
-        const bombPlacer = new BombPlacement();
-    const explosionSystem = new ExplosionSystem(bombPlacer);
-
-    // Expose reset helper for manual testing (call from browser console)
-    window.resetRound = () => resetRound({ playersInstances: [player], bombPlacer });
-
-        // 4. Input Listener for Bombs (Spacebar)
-        window.addEventListener('keydown', (e) => {
-            if (e.code === 'Space' || e.key === ' ') {
-                e.preventDefault(); // Stop page scrolling
-                
-                // Get mapData for bomb placement validation
-                const state = store.getState();
-                const mapData = state.map.data;
-                
-                // Get player's current grid position directly from player object
-                // (Don't use store - causes rendering issues)
-                // Pass the player instance so the bomb placer can consult
-                // runtime properties (maxBombs, bombRange) which may have
-                // changed from powerups.
-                const newBomb = bombPlacer.placeBomb(player, mapData);
-
-                // B. If successful, set the fuse!
-                if (newBomb) {
-                    newBomb.timerId = setTimeout(() => {
-                        // C. Trigger Explosion after 3 seconds
-                        const state = store.getState();
-                        const mapData = state.map.data;
-                        console.log(`💥 Explosion triggered for bomb ${newBomb.id}`);
-                        const removed = bombPlacer.removeBomb(newBomb.id, newBomb.element); // Remove bomb from DOM
-                        explosionSystem.triggerExplosion(removed || newBomb, mapData, player); // Pass bomb, map, and player
-                    }, bombPlacer.BOMB_TIMER); 
-                // Bomb placement handled locally and by bomb system; network sync belongs to multiplayer module.
-                }
+    // Multiplayer integration
+    (async () => {
+        try {
+            const { default: WebSocketManager } = await import('./multiplayer/websocket.js');
+            const { ChatManager } = await import('./multiplayer/chat.js');
+            const { default: RemotePlayersManager } = await import('./multiplayer/remotePlayers.js');
+            const { default: LobbyUI } = await import('./multiplayer/lobby.js');
+            
+            let nickname = localStorage.getItem('mp_nick') || '';
+            if (!nickname) {
+                nickname = prompt('Enter your nickname:', 'Player_' + Math.floor(Math.random()*9999));
+                localStorage.setItem('mp_nick', nickname);
             }
-        });
 
-        // 5. Start Game Loop (Movement & Physics)
-        function gameLoop() {
-            player.update();
-            requestAnimationFrame(gameLoop);
+            const ws = new WebSocketManager({ host: location.hostname + ':8081' });
+            let gameStarted = false;
+
+            const lobby = new LobbyUI({
+                wsManager: ws,
+                onGameStart: () => {
+                    if (gameStarted) return;
+                    gameStarted = true;
+                    initPlayer();
+                    startTimer();
+                }
+            });
+
+            ws.connect(nickname);
+            new ChatManager(ws);
+            const rpm = new RemotePlayersManager({ wsManager: ws, mapContainer });
+
+            ws.on('joined', () => {
+                const state = store.getState();
+                if (state.map && state.map.data) {
+                    ws.send({ type: 'mapSync', payload: { data: state.map.data, rows: state.map.rows, cols: state.map.cols } });
+                }
+            });
+
+            ws.on('mapSync', payload => {
+                if (payload && payload.data) {
+                    store.setState({ map: { data: payload.data, rows: payload.rows, cols: payload.cols } });
+                    app.render();
+                }
+            });
+
+            ws.on('playerJoined', p => p && rpm.addPlayer(p));
+            ws.on('playerLeft', p => p && rpm.removePlayer(p.id));
+            ws.on('action', a => rpm.handleAction(a));
+            ws.on('stateSync', s => rpm.syncState(s));
+            ws.on('lobbyState', s => s && s.players.forEach(p => rpm.addPlayer(p)));
+            window.mpWS = ws;
+            window.mpRPM = rpm;
+        } catch (err) {
+            console.warn('Multiplayer failed to load', err);
         }
-        
-        gameLoop();
-        console.log("✅ Game Loop Started");
-    }, 100);
+    })();
 
-    // No multiplayer wiring here to avoid altering game flow code — use the /src/multiplayer modules instead.
+    // Keyboard input for bombs
+    window.addEventListener('keydown', (e) => {
+        if (!player) return;
+        if (e.code === 'Space' || e.key === ' ') {
+            e.preventDefault();
+            const mapData = store.getState().map.data;
+            const newBomb = bombPlacer.placeBomb(player, mapData);
+            if (newBomb) {
+                newBomb.timerId = setTimeout(() => {
+                    const removed = bombPlacer.removeBomb(newBomb.id, newBomb.element);
+                    explosionSystem.triggerExplosion(removed || newBomb, mapData, player);
+                    if (player.isInExplosion(removed || newBomb)) {
+                        onPlayerHit();
+                    }
+                }, bombPlacer.BOMB_TIMER);
+            }
+        }
+    });
+
+    // Expose reset helper
+    window.resetRound = () => resetRound({ playersInstances: [player], bombPlacer });
 });

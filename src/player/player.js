@@ -8,44 +8,31 @@ const PLAYER_SIZE = 32;     // Size of the player sprite in pixels
 const OFFSET = (TILE_SIZE - PLAYER_SIZE) / 2; // Center player in tile
 const SPEED = 4;            // Movement speed (pixels per frame)
 
-// --- Sprite Sheet Configuration ---
-// 2x2 grid: [Down, Right] / [Up, Left]
-const SPRITE_COLS = 2;      // 2 columns (Down/Right, Up/Left)
-const SPRITE_ROWS = 2;      // 2 rows
-
 export class Player {
     constructor() {
         console.log("🤖 Player Constructor Started...");
 
-        // --- 1. Initialize Player Data (REQUIRED FOR BOMBS) ---
-        this.id = 'p1';          // ID to track who owns the bomb
-        this.lives = 3;          // Audit Requirement: Start with 3 lives
-        this.maxBombs = 1;       // Max bombs allowed at once
-        this.bombRange = 1;      // Explosion range
-         this.speed = SPEED; 
-        this.dead = false;       // Track death state
-        
+        // --- 1. Initialize Player Data ---
+        this.id = 'p1';         
+        this.lives = 3;         
+        this.maxBombs = 1;      
+        this.bombRange = 1;     
+        this.speed = SPEED; 
+        this.dead = false;      
 
-        // Remember starting spawn for respawns
+        // Spawn position
         this.spawnRow = 1;
         this.spawnCol = 1;
-
-        // --- 2. Set initial position (top-left safe zone) ---
-        // Start at tile (1,1)
-        this.row = this.spawnRow; 
+        this.row = this.spawnRow;
         this.col = this.spawnCol;
-        
-        // Convert Grid (1,1) to Pixels for the visual position
-        this.x = (this.col * TILE_SIZE) + OFFSET; 
+        this.x = (this.col * TILE_SIZE) + OFFSET;
         this.y = (this.row * TILE_SIZE) + OFFSET;
 
         console.log(`📍 Initial Position calculated: x=${this.x}, y=${this.y}`);
 
-        // --- 3. Create player DOM element ---
-        this.element = document.createElement('div'); // Create a div for the player
-        this.element.className = 'player';            // Assign CSS class for styling
-
-        // --- 4. Attach player to the map container ---
+        // --- 2. Create player DOM element ---
+        this.element = document.createElement('div');
+        this.element.className = 'player';
         const mapContainer = document.querySelector('.map');
         if (!mapContainer) {
             console.error("❌ CRITICAL ERROR: .map container missing!");
@@ -54,7 +41,10 @@ export class Player {
         mapContainer.appendChild(this.element);
         console.log("✅ Player element added to DOM");
 
-        // --- 5. Keyboard input handling ---
+        // --- 3. Create Lives UI ---
+        this.createLivesUI();
+
+        // --- 4. Keyboard input handling ---
         this.keys = {};
         window.addEventListener('keydown', e => {
             this.keys[e.key] = true;
@@ -69,86 +59,55 @@ export class Player {
             }
         });
 
-        // --- 6. Animation state for sprite sheet ---
-        this.direction = 0;      // 0=down, 1=left, 2=right, 3=up
-        this.isMoving = false;   // Track if player is currently moving
+        // --- 5. Animation state ---
+        this.direction = 0;    
+        this.isMoving = false; 
 
-        // --- 7. Initial render ---
+        // --- 6. Initial render ---
         this.render(); 
         console.log("✅ Player Rendered Successfully");
+        this.updateLivesUI();
     }
 
-    // Called every frame to update player movement
+    // --- Movement Update ---
     update() {
-        if (this.dead) return; // No movement when dead
+        if (this.dead) return;
 
-        let dx = 0;
-        let dy = 0;
+        let dx = 0, dy = 0;
+        if (this.keys['ArrowUp']) { dy = -this.speed; this.direction = 3; }
+        if (this.keys['ArrowDown']) { dy = this.speed; this.direction = 0; }
+        if (this.keys['ArrowLeft']) { dx = -this.speed; this.direction = 1; }
+        if (this.keys['ArrowRight']) { dx = this.speed; this.direction = 2; }
 
-        // Check which movement keys are pressed
-        if (this.keys['ArrowUp']) {
-            dy = -this.speed;
-            this.direction = 3; // Up
-        }
-        if (this.keys['ArrowDown']) {
-            dy = this.speed;
-            this.direction = 0; // Down
-        }
-        if (this.keys['ArrowLeft']) {
-            dx = -this.speed;
-            this.direction = 1; // Left
-        }
-        if (this.keys['ArrowRight']) {
-            dx = this.speed;
-            this.direction = 2; // Right
-        }
-
-        // Only move if a direction key is pressed
-        if (dx !== 0 || dy !== 0) {
-            this.move(dx, dy);
-        }
+        if (dx !== 0 || dy !== 0) this.move(dx, dy);
     }
 
-    // Attempt to move the player by dx, dy
     move(dx, dy) {
         const nextX = this.x + dx;
         const nextY = this.y + dy;
-
-        // Check for collision before moving
         if (!this.checkCollision(nextX, nextY)) {
-            // 1. Update Visual Position (Pixels)
             this.x = nextX;
             this.y = nextY;
 
-            // 2. Update Grid Position (Logic)
-            // This allows the Bomb System to know EXACTLY which tile we are on
-            // We use the center of the player to decide the tile
             const centerX = this.x + PLAYER_SIZE / 2;
             const centerY = this.y + PLAYER_SIZE / 2;
-            
             this.col = Math.floor(centerX / TILE_SIZE);
             this.row = Math.floor(centerY / TILE_SIZE);
 
-            // 3. Render the change
-            this.render(); 
+            this.render();
 
-            // 4. Broadcast position to other players (Person 4: multiplayer sync)
-            if (window.mpWS && window.mpWS.ws && window.mpWS.ws.readyState === 1) {
+            // Multiplayer sync
+            if (window.mpWS?.ws?.readyState === 1) {
                 window.mpWS.sendAction({ type: 'move', row: this.row, col: this.col, x: this.x, y: this.y });
             }
 
-            // ⚠️ Don't update store every frame - causes framework rendering issues
-            // The bomb system will use this.row and this.col directly from the player object
-            // No need to sync with store on every move 
-            // Check for powerup collection at the new grid position
+            // Check for powerups
             try {
                 const state = store.getState();
                 const powerups = state.powerups || [];
                 const found = powerups.find(p => p.row === this.row && p.col === this.col);
                 if (found) {
                     const pm = getPowerupManager();
-                    // Pass `this` so runtime properties (speed, bombRange, maxBombs)
-                    // are updated immediately for the local player.
                     pm.collectPowerup(this.id, found.id, this);
                     console.log(`🔋 Powerup collected: ${found.type} at [${this.row},${this.col}]`);
                 }
@@ -158,78 +117,75 @@ export class Player {
         }
     }
 
-    // Collision detection: returns true if movement is blocked
+    // --- Collision Detection ---
     checkCollision(newX, newY) {
-        const state = store.getState();
-        const mapData = state.map?.data;
-        
-        if (!mapData) return true; // Block movement if map isn't loaded
+        const mapData = store.getState().map?.data;
+        if (!mapData) return true;
 
-        // Check all 4 corners of the player's bounding box
         const points = [
-            { x: newX, y: newY },                              // Top-left
-            { x: newX + PLAYER_SIZE, y: newY },                // Top-right
-            { x: newX, y: newY + PLAYER_SIZE },                // Bottom-left
-            { x: newX + PLAYER_SIZE, y: newY + PLAYER_SIZE }   // Bottom-right
+            {x:newX, y:newY}, {x:newX+PLAYER_SIZE, y:newY},
+            {x:newX, y:newY+PLAYER_SIZE}, {x:newX+PLAYER_SIZE, y:newY+PLAYER_SIZE}
         ];
 
         for (const p of points) {
-            // Convert pixel position to grid coordinates
             const col = Math.floor(p.x / TILE_SIZE);
             const row = Math.floor(p.y / TILE_SIZE);
-
-            // Block movement if out of bounds
             if (row < 0 || col < 0 || row >= 13 || col >= 15) return true;
-
-            // Block movement if cell is a wall or block
             const tile = mapData[row][col];
-            if (tile && (tile.type === 'wall' || tile.type === 'block')) {
-                return true; 
-            }
+            if (tile && (tile.type==='wall'||tile.type==='block')) return true;
         }
-        return false; // No collision detected
+        return false;
     }
 
-    // Update the player's position visually using CSS transform and sprite direction
+    // --- Render Player ---
     render() {
-        // Map direction to sprite sheet position (2x2 grid)
-        // [Down, Right] / [Up, Left]
         const directionMap = {
-            0: { x: 0, y: 0 },     // Down (top-left)
-            1: { x: 100, y: 0 },   // Left (top-right)
-            2: { x: 100, y: 100 }, // Right (bottom-right)
-            3: { x: 0, y: 100 }    // Up (bottom-left)
+            0: {x:0,y:0}, 1:{x:100,y:0}, 2:{x:100,y:100}, 3:{x:0,y:100}
         };
-
         const pos = directionMap[this.direction] || directionMap[0];
-
         this.element.style.transform = `translate(${this.x}px, ${this.y}px)`;
         this.element.style.backgroundPosition = `${pos.x}% ${pos.y}%`;
     }
 
-    // Apply incoming damage (used by explosions)
-    applyDamage(amount = 1) {
-        if (this.dead) return;
-
-        this.lives = Math.max(0, (this.lives || 0) - amount);
-        this.flashHit();
-
-        // Reset powerups when the player loses a life
-        // This brings runtime values and the store snapshot back to defaults
-        try {
-            this.resetPowerups();
-        } catch (err) {
-            console.error('Error resetting powerups on damage:', err);
+    // --- Lives UI ---
+    createLivesUI() {
+        let container = document.querySelector(`#lives-${this.id}`);
+        if (!container) {
+            container = document.createElement('div');
+            container.id = `lives-${this.id}`;
+            container.className = 'player-lives';
+            document.body.appendChild(container);
         }
+        this.updateLivesUI();
+    }
+
+    updateLivesUI() {
+        const container = document.querySelector(`#lives-${this.id}`);
+        if (!container) return;
+        container.innerHTML = '';
+        for (let i=0;i<this.lives;i++) {
+            const heart = document.createElement('span');
+            heart.className = 'heart new';
+            container.appendChild(heart);
+        }
+    }
+
+    // --- Apply Damage ---
+    applyDamage(amount=1) {
+        if (this.dead) return;
+        this.lives = Math.max(0, this.lives - amount);
+        this.flashHit();
+        this.updateLivesUI();
+        this.resetPowerups();
 
         if (this.lives <= 0) {
             this.die();
+            this.showEndGameMessage('💀 You Lost!');
         } else {
             this.respawnAtSpawn();
         }
     }
 
-    // Brief visual feedback for damage
     flashHit() {
         if (!this.element) return;
         const originalOpacity = this.element.style.opacity || '1';
@@ -243,80 +199,61 @@ export class Player {
         }, 250);
     }
 
-    // Handle death: mark dead, stop input, remove from DOM
     die() {
         this.dead = true;
         this.keys = {};
         if (this.element) {
             this.element.classList.add('player-dead');
-            this.element.style.opacity = '0.35';
+            this.element.style.opacity='0.35';
             this.element.remove();
         }
     }
 
-    // Move the player back to the starting corner when hit but still alive
     respawnAtSpawn() {
-        // Reset grid position
         this.row = this.spawnRow;
         this.col = this.spawnCol;
-
-        // Reset pixel position
         this.x = (this.col * TILE_SIZE) + OFFSET;
         this.y = (this.row * TILE_SIZE) + OFFSET;
-
-        // Ensure the element is in the DOM (in case it was removed externally)
         if (this.element && !document.body.contains(this.element)) {
             const mapContainer = document.querySelector('.map');
-            if (mapContainer) {
-                mapContainer.appendChild(this.element);
-            }
+            if (mapContainer) mapContainer.appendChild(this.element);
         }
-
         this.render();
     }
 
-    // Reset runtime powerup-related fields and update store snapshot
     resetPowerups() {
-        // Reset instance fields to defaults
         this.maxBombs = 1;
         this.bombRange = 1;
         this.speed = SPEED;
-        // Clear any pending powerup timers (temporary boosts)
         if (this._powerupTimers) {
             (this._powerupTimers.bombs || []).forEach(t => clearTimeout(t));
             (this._powerupTimers.flames || []).forEach(t => clearTimeout(t));
             this._powerupTimers = { bombs: [], flames: [] };
         }
-        // Also update the serializable player snapshot in the store if present
-        try {
-            const state = store.getState();
-            const players = (state.players || []).map(p => {
-                if (p.id !== this.id) return p;
-                return {
-                    ...p,
-                    bombs: 1,
-                    flames: 1,
-                    speed: 1
-                };
-            });
-            store.setState({ players });
-        } catch (err) {
-            console.error('Error updating store on resetPowerups:', err);
-        }
     }
 
-    // Sync the player's grid position with the global store
-    // (Currently unused to prevent Framework Crash)
-    updateStore() {
-        store.setState({
-            activePlayer: {
-                id: this.id,
-                col: this.col,   // Corrected variable name
-                row: this.row,   // Corrected variable name
-                lives: this.lives,
-                range: this.bombRange,
-                maxAmmo: this.maxBombs
-            }
-        });
+    // --- End Game Overlay ---
+    showEndGameMessage(msg) {
+        let overlay = document.querySelector('.endgame-overlay');
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.className = 'endgame-overlay';
+            overlay.innerHTML = `<div>${msg}</div><button onclick="location.reload()">Restart</button>`;
+            document.body.appendChild(overlay);
+        } else {
+            overlay.querySelector('div').textContent = msg;
+        }
+        overlay.classList.add('active');
+    }
+
+    // --- Win Check (call after moves/bombs) ---
+    checkWinCondition() {
+        const state = store.getState();
+        const alivePlayers = (state.players||[]).filter(p => !p.dead);
+        if (alivePlayers.length === 1 && alivePlayers[0].id === this.id) {
+            this.showEndGameMessage('🎉 You Won!');
+            return true;
+        }
+        return false;
     }
 }

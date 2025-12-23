@@ -395,78 +395,314 @@ body {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.95);
+    background: radial-gradient(circle at center, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.98) 100%);
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 9999;
+    overflow: hidden;
 }
 
+/* Animated background glow */
+#lobby-overlay::before {
+    content: "";
+    position: absolute;
+    width: 200%;
+    height: 200%;
+    top: -50%;
+    left: -50%;
+    background: conic-gradient(from 0deg, #667eea, #764ba2, #667eea, #764ba2);
+    animation: rotate-bg 20s linear infinite;
+    opacity: 0.2;
+    z-index: 0;
+}
+
+@keyframes rotate-bg {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Lobby Container */
 .lobby-container {
+    position: relative;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    border-radius: 20px;
-    padding: 40px;
-    max-width: 500px;
+    border-radius: 25px;
+    padding: 50px 40px;
+    max-width: 520px;
     width: 90%;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6);
     text-align: center;
+    z-index: 1;
+    animation: pop-in 0.5s ease-out;
+}
+
+@keyframes pop-in {
+    0% { transform: scale(0.8); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
 }
 
 .lobby-container h1 {
-    margin: 0 0 30px 0;
-    font-size: 2.5em;
-    color: white;
-    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+    margin: 0 0 35px 0;
+    font-size: 2.8em;
+    color: #fff;
+    text-shadow: 2px 2px 6px rgba(0, 0, 0, 0.4);
+    animation: glow-text 2s ease-in-out infinite alternate;
+}
+
+@keyframes glow-text {
+    0% { text-shadow: 0 0 10px #ffd700, 0 0 20px #ffbf00, 0 0 30px #ff8c00; }
+    100% { text-shadow: 0 0 20px #ffeb3b, 0 0 30px #ffc107, 0 0 40px #ff9800; }
 }
 
 .lobby-content {
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 15px;
-    padding: 30px;
-    backdrop-filter: blur(10px);
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 20px;
+    padding: 35px 30px;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 15px 30px rgba(0,0,0,0.5);
 }
 
+/* Player List */
 .player-list h3 {
-    margin: 0 0 15px 0;
+    margin-bottom: 15px;
     color: #fff;
-    font-size: 1.3em;
+    font-size: 1.4em;
 }
 
 #lobby-players {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
     margin-bottom: 30px;
 }
 
 .lobby-player {
-    background: rgba(255, 255, 255, 0.2);
-    padding: 12px 20px;
-    border-radius: 10px;
-    color: white;
-    font-size: 1.1em;
-    font-weight: bold;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    background: rgba(255, 255, 255, 0.15);
+    padding: 14px 22px;
+    border-radius: 12px;
+    color: #fff;
+    font-size: 1.15em;
+    font-weight: 700;
+    box-shadow: 0 6px 12px rgba(0,0,0,0.2);
+    transition: transform 0.2s, background 0.2s;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    animation: slide-in 0.4s ease forwards;
 }
 
+.lobby-player:hover {
+    transform: scale(1.05);
+    background: rgba(255, 255, 255, 0.25);
+}
+
+@keyframes slide-in {
+    0% { opacity: 0; transform: translateX(-20px); }
+    100% { opacity: 1; transform: translateX(0); }
+}
+
+/* Lobby Status */
 .lobby-status {
     margin-top: 20px;
 }
 
 #lobby-message {
-    font-size: 1.2em;
-    color: white;
-    margin-bottom: 15px;
+    font-size: 1.3em;
+    color: #fff;
+    margin-bottom: 20px;
     font-weight: bold;
+    animation: pulse-text 1.5s infinite;
 }
 
+@keyframes pulse-text {
+    0% { text-shadow: 0 0 5px #fff; }
+    50% { text-shadow: 0 0 15px #ffea00; }
+    100% { text-shadow: 0 0 5px #fff; }
+}
+
+/* Countdown Timer */
 #lobby-countdown {
-    font-size: 3em;
+    font-size: 4em;
     color: #ffd700;
     font-weight: bold;
-    text-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
-    min-height: 60px;
+    text-shadow: 0 0 20px rgba(255, 215, 0, 0.8), 0 0 40px rgba(255, 215, 0, 0.6), 0 0 60px rgba(255, 215, 0, 0.4);
+    min-height: 70px;
     display: flex;
     align-items: center;
     justify-content: center;
+    animation: countdown-glow 1.2s ease-in-out infinite alternate;
 }
+
+@keyframes countdown-glow {
+    0% { text-shadow: 0 0 20px #ffd700, 0 0 40px #ffeb3b, 0 0 60px #ffc107; }
+    100% { text-shadow: 0 0 35px #ffd700, 0 0 60px #ffeb3b, 0 0 80px #ffc107; }
+}
+
+/* Hide / Show */
+#lobby-overlay.hidden {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+/* Join Button & Nickname */
+.nickname-form {
+    margin-bottom: 25px;
+}
+
+.nickname-input {
+    padding: 12px 18px;
+    font-size: 18px;
+    border-radius: 8px;
+    border: none;
+    outline: none;
+    margin-right: 10px;
+    background: rgba(255,255,255,0.15);
+    color: #fff;
+    transition: background 0.2s;
+}
+
+.nickname-input:focus {
+    background: rgba(255,255,255,0.3);
+}
+
+.join-button {
+    padding: 12px 28px;
+    font-size: 18px;
+    background: linear-gradient(90deg, #2ecc71 50%, #27ae60 100%);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 700;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 5px 15px rgba(46,204,113,0.4);
+}
+
+.join-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(46,204,113,0.6);
+}
+
+/* Player lives (visual only) */
+.player-lives {
+    position: fixed;
+    top: 20px;    /* always at top */
+    left: 20px;   /* shift horizontally for each player if needed */
+    font-size: 24px;
+    display: flex;
+    gap: 6px;
+    pointer-events: none;
+    z-index: 1000;
+}
+
+.player-lives span {
+    display: inline-block;
+}
+
+/* Add to your existing CSS */
+.game-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 20px;
+    background: #222;
+    color: white;
+}
+
+.game-title {
+    margin: 0;
+    color: #ff4444;
+    text-shadow: 2px 2px 0 #000;
+}
+
+/* Player Lives Container */
+.player-lives {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    display: flex;
+    gap: 8px;
+    z-index: 1000;
+    pointer-events: none;
+}
+
+/* Each heart */
+.player-lives .heart {
+    width: 36px;
+    height: 36px;
+    display: inline-block;
+    background: linear-gradient(145deg, #ff6b6b, #ff0000);
+    clip-path: polygon(
+        50% 0%, 
+        61% 15%, 
+        75% 15%, 
+        85% 25%, 
+        85% 40%, 
+        50% 75%, 
+        15% 40%, 
+        15% 25%, 
+        25% 15%, 
+        39% 15%
+    ); /* Heart shape */
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+    transition: transform 0.25s ease, opacity 0.25s ease, filter 0.25s ease;
+}
+
+/* Lost heart animation */
+.player-lives .heart.lost {
+    transform: scale(0);
+    opacity: 0;
+    filter: grayscale(100%) brightness(80%);
+}
+
+/* Hover bounce effect for remaining hearts */
+.player-lives .heart:not(.lost):hover {
+    transform: scale(1.2) rotate(-10deg);
+    filter: drop-shadow(0 4px 4px rgba(0,0,0,0.3));
+}
+
+/* Optional: smooth appearing hearts when gaining lives */
+.player-lives .heart.new {
+    transform: scale(0);
+    opacity: 0;
+    animation: heart-pop 0.3s forwards;
+}
+
+@keyframes heart-pop {
+    0% { transform: scale(0); opacity: 0; }
+    50% { transform: scale(1.2); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+}
+.endgame-overlay {
+    position: fixed;
+    top:0; left:0;
+    width:100%; height:100%;
+    background: rgba(0,0,0,0.85);
+    color: #fff;
+    font-size: 3em;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-direction: column;
+    z-index: 9999;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+.endgame-overlay.active {
+    opacity: 1;
+    pointer-events: all;
+}
+.endgame-overlay button {
+    margin-top: 20px;
+    padding: 12px 28px;
+    font-size: 18px;
+    background: linear-gradient(90deg,#2ecc71 50%,#27ae60 100%);
+    color: #fff;
+    border:none;
+    border-radius:10px;
+    cursor:pointer;
+    font-weight:700;
+}
+
