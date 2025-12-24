@@ -9,25 +9,26 @@ const OFFSET = (TILE_SIZE - PLAYER_SIZE) / 2; // Center player in tile
 const SPEED = 4;            // Movement speed (pixels per frame)
 
 export class Player {
-    constructor() {
+    constructor(playerOptions = {}) {
         console.log("🤖 Player Constructor Started...");
 
         // --- 1. Initialize Player Data ---
-        this.id = 'p1';         
+        this.id = playerOptions.id || 'p1';         
         this.lives = 3;         
         this.maxBombs = 1;      
         this.bombRange = 1;     
         this.speed = SPEED; 
         this.dead = false;      
 
-        // Spawn position
-        this.spawnRow = 1;
-        this.spawnCol = 1;
+        // Spawn position - use provided coordinates or default to top-left
+        this.spawnRow = playerOptions.spawnRow || 1;
+        this.spawnCol = playerOptions.spawnCol || 1;
         this.row = this.spawnRow;
         this.col = this.spawnCol;
         this.x = (this.col * TILE_SIZE) + OFFSET;
         this.y = (this.row * TILE_SIZE) + OFFSET;
 
+        console.log(`📍 Player ${this.id} spawn position: row=${this.spawnRow}, col=${this.spawnCol}`);
         console.log(`📍 Initial Position calculated: x=${this.x}, y=${this.y}`);
 
         // --- 2. Create player DOM element ---
@@ -98,7 +99,16 @@ export class Player {
 
             // Multiplayer sync
             if (window.mpWS?.ws?.readyState === 1) {
-                window.mpWS.sendAction({ type: 'move', row: this.row, col: this.col, x: this.x, y: this.y });
+                window.mpWS.send({
+                    type: 'action',
+                    payload: {
+                        type: 'move',
+                        row: this.row,
+                        col: this.col,
+                        x: this.x,
+                        y: this.y
+                    }
+                });
             }
 
             // Check for powerups
@@ -230,6 +240,14 @@ export class Player {
             (this._powerupTimers.flames || []).forEach(t => clearTimeout(t));
             this._powerupTimers = { bombs: [], flames: [] };
         }
+    }
+
+    // Check if player is in explosion range
+    isInExplosion(explosion) {
+        if (!explosion) return false;
+        
+        // Check if player's current position matches explosion position
+        return this.row === explosion.row && this.col === explosion.col;
     }
 
     // --- End Game Overlay ---

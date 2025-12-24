@@ -93,6 +93,21 @@ export class ExplosionSystem {
         store.setState({
             map: { ...state.map, data: mapData }
         });
+
+        // 5. SYNC MAP CHANGES WITH OTHER PLAYERS
+        if (window.mpWS?.ws?.readyState === 1) {
+            // Send the affected tiles and map changes to other players
+            window.mpWS.send({
+                type: 'action',
+                payload: {
+                    type: 'mapUpdate',
+                    affectedTiles: affectedTiles,
+                    mapData: mapData,
+                    explosionCenter: { row: bomb.row, col: bomb.col, range: bomb.range || 1 },
+                    timestamp: Date.now()
+                }
+            });
+        }
     }
 
     // Math helper to find which tiles are safe vs hit

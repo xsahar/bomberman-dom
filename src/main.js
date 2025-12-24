@@ -83,7 +83,23 @@ function onPlayerHit() {
 // Initialize player, bombs, explosions, and lives
 function initPlayer() {
     console.log('🕹️ Spawning Player...');
-    player = new Player();
+    
+    // Get spawn positions from map generator
+    const generator = new MapGenerator();
+    const spawnPositions = generator.getSpawnPositions();
+    
+    // Use playerIndex if available from multiplayer, otherwise default to 0
+    const currentPlayerIndex = (window.mpWS && window.mpWS.playerIndex !== undefined) ? window.mpWS.playerIndex : 0;
+    const spawn = spawnPositions[currentPlayerIndex] || spawnPositions[0];
+    
+    console.log(`🎯 Using player index ${currentPlayerIndex} for spawn position: row=${spawn.row}, col=${spawn.col}`);
+    console.log(`🗺️ Available spawn positions:`, spawnPositions);
+    
+    player = new Player({
+        id: 'local_player',
+        spawnRow: spawn.row,
+        spawnCol: spawn.col
+    });
 
   
 
@@ -120,6 +136,9 @@ window.addEventListener('load', () => {
     const app = createApp(RootComponent, container);
     app.connectToStore(store);
     app.render();
+    
+    // Expose app globally for re-rendering after remote map updates
+    window.app = app;
 
     const mapContainer = document.querySelector('.map'); 
 
@@ -139,12 +158,15 @@ window.addEventListener('load', () => {
 
             const ws = new WebSocketManager({ host: location.hostname + ':8081' });
             let gameStarted = false;
+            let playerIndex = 0; // Track which player this is for spawn positioning
 
             const lobby = new LobbyUI({
                 wsManager: ws,
                 onGameStart: () => {
                     if (gameStarted) return;
                     gameStarted = true;
+                    // Store playerIndex on ws object for access in initPlayer
+                    ws.playerIndex = playerIndex;
                     initPlayer();
                     startTimer();
                 }
@@ -154,7 +176,12 @@ window.addEventListener('load', () => {
             new ChatManager(ws);
             const rpm = new RemotePlayersManager({ wsManager: ws, mapContainer });
 
-            ws.on('joined', () => {
+            ws.on('joined', (data) => {
+                // Get player index from server response to determine spawn position
+                if (data && typeof data.playerIndex !== 'undefined') {
+                    playerIndex = data.playerIndex;
+                    ws.playerIndex = playerIndex;
+                }
                 const state = store.getState();
                 if (state.map && state.map.data) {
                     ws.send({ type: 'mapSync', payload: { data: state.map.data, rows: state.map.rows, cols: state.map.cols } });
@@ -168,11 +195,43 @@ window.addEventListener('load', () => {
                 }
             });
 
-            ws.on('playerJoined', p => p && rpm.addPlayer(p));
+            ws.on('playerJoined', p => {
+                if (p) {
+                    rpm.addPlayer(p);
+                    // Assign spawn position to newly joined player using their playerIndex
+                    if (p.playerIndex !== undefined) {
+                        const generator = new MapGenerator();
+                        const spawnPositions = generator.getSpawnPositions();
+                        const spawn = spawnPositions[p.playerIndex] || spawnPositions[0];
+                        const spawnX = spawn.col * 40 + 4; // TILE_SIZE * col + OFFSET
+                        const spawnY = spawn.row * 40 + 4; // TILE_SIZE * row + OFFSET
+                        console.log(`🎯 New player ${p.id} joined at index ${p.playerIndex}: row=${spawn.row}, col=${spawn.col}, x=${spawnX}, y=${spawnY}`);
+                        rpm.updatePlayerPosition(p.id, spawn.row, spawn.col, spawnX, spawnY);
+                    }
+                }
+            });
             ws.on('playerLeft', p => p && rpm.removePlayer(p.id));
             ws.on('action', a => rpm.handleAction(a));
             ws.on('stateSync', s => rpm.syncState(s));
-            ws.on('lobbyState', s => s && s.players.forEach(p => rpm.addPlayer(p)));
+            ws.on('lobbyState', s => {
+                if (s && s.players) {
+                    const generator = new MapGenerator();
+                    const spawnPositions = generator.getSpawnPositions();
+                    s.players.forEach((p, index) => {
+                        // Only add player if not already added
+                        if (!rpm.players.has(p.id)) {
+                            rpm.addPlayer(p);
+                            // Position new players at their spawn points
+                            const playerIndex = p.playerIndex !== undefined ? p.playerIndex : index;
+                            const spawn = spawnPositions[playerIndex] || spawnPositions[0];
+                            const spawnX = spawn.col * 40 + 4; // TILE_SIZE * col + OFFSET
+                            const spawnY = spawn.row * 40 + 4; // TILE_SIZE * row + OFFSET
+                            console.log(`🎯 Positioning new player ${p.id} at index ${playerIndex}: row=${spawn.row}, col=${spawn.col}, x=${spawnX}, y=${spawnY}`);
+                            rpm.updatePlayerPosition(p.id, spawn.row, spawn.col, spawnX, spawnY);
+                        }
+                    });
+                }
+            });
             window.mpWS = ws;
             window.mpRPM = rpm;
         } catch (err) {
@@ -188,9 +247,39 @@ window.addEventListener('load', () => {
             const mapData = store.getState().map.data;
             const newBomb = bombPlacer.placeBomb(player, mapData);
             if (newBomb) {
+                // Sync bomb placement with other players
+                if (window.mpWS?.ws?.readyState === 1) {
+                    window.mpWS.send({
+                        type: 'action',
+                        payload: {
+                            playerId: window.mpWS.id,
+                            type: 'placeBomb',
+                            row: newBomb.row,
+                            col: newBomb.col,
+                            timestamp: Date.now()
+                        }
+                    });
+                }
+                
                 newBomb.timerId = setTimeout(() => {
                     const removed = bombPlacer.removeBomb(newBomb.id, newBomb.element);
                     explosionSystem.triggerExplosion(removed || newBomb, mapData, player);
+                    
+                    // Sync explosion with other players
+                    if (window.mpWS?.ws?.readyState === 1) {
+                        window.mpWS.send({
+                            type: 'action',
+                            payload: {
+                                playerId: window.mpWS.id,
+                                type: 'explode',
+                                row: (removed || newBomb).row,
+                                col: (removed || newBomb).col,
+                                range: player.bombRange,
+                                timestamp: Date.now()
+                            }
+                        });
+                    }
+                    
                     if (player.isInExplosion(removed || newBomb)) {
                         onPlayerHit();
                     }

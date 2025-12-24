@@ -79,11 +79,11 @@ function startLobbyCountdown(lobbyName) {
   cleanupLobbyTimers(lobby);
   let remaining = Math.floor(lobby.countdownMs / 1000);
   lobby.gameState = { state: 'starting', countdown: remaining };
-  broadcastToLobby(lobbyName, { type: 'lobbyState', payload: { players: Array.from(lobby.players.values()).map(p => ({ id: p.id, nickname: p.nickname })), gameState: lobby.gameState } });
+  broadcastToLobby(lobbyName, { type: 'lobbyState', payload: { players: Array.from(lobby.players.values()).map((p, idx) => ({ id: p.id, nickname: p.nickname, playerIndex: Math.min(idx, 3) })), gameState: lobby.gameState } });
   lobby._countdownInterval = setInterval(() => {
     remaining -= 1;
     lobby.gameState.countdown = remaining;
-    broadcastToLobby(lobbyName, { type: 'lobbyState', payload: { players: Array.from(lobby.players.values()).map(p => ({ id: p.id, nickname: p.nickname })), gameState: lobby.gameState } });
+    broadcastToLobby(lobbyName, { type: 'lobbyState', payload: { players: Array.from(lobby.players.values()).map((p, idx) => ({ id: p.id, nickname: p.nickname, playerIndex: Math.min(idx, 3) })), gameState: lobby.gameState } });
   }, 1000);
   lobby._countdownTimer = setTimeout(() => {
     cleanupLobbyTimers(lobby);
@@ -95,7 +95,7 @@ function startGameForLobby(lobbyName) {
   const lobby = lobbies.get(lobbyName);
   if (!lobby) return;
   lobby.gameState = { state: 'playing', startedAt: Date.now() };
-  broadcastToLobby(lobbyName, { type: 'lobbyState', payload: { players: Array.from(lobby.players.values()).map(p => ({ id: p.id, nickname: p.nickname })), gameState: lobby.gameState } });
+  broadcastToLobby(lobbyName, { type: 'lobbyState', payload: { players: Array.from(lobby.players.values()).map((p, idx) => ({ id: p.id, nickname: p.nickname, playerIndex: Math.min(idx, 3) })), gameState: lobby.gameState } });
   // Broadcast shared map to all players at game start
   if (lobby.sharedMap) {
     broadcastToLobby(lobbyName, { type: 'mapSync', payload: lobby.sharedMap });
@@ -117,14 +117,14 @@ function evaluateLobbyStart(lobbyName) {
       startLobbyCountdown(lobbyName);
     }, lobby.waitDurationMs);
     lobby.gameState = { state: 'waiting', waitEndsAt: Date.now() + lobby.waitDurationMs };
-    broadcastToLobby(lobbyName, { type: 'lobbyState', payload: { players: Array.from(lobby.players.values()).map(p => ({ id: p.id, nickname: p.nickname })), gameState: lobby.gameState } });
+    broadcastToLobby(lobbyName, { type: 'lobbyState', payload: { players: Array.from(lobby.players.values()).map((p, idx) => ({ id: p.id, nickname: p.nickname, playerIndex: Math.min(idx, 3) })), gameState: lobby.gameState } });
     return;
   }
   // Not enough players -> ensure cleared
   if (count < lobby.minPlayers) {
     cleanupLobbyTimers(lobby);
     lobby.gameState = { state: 'lobby' };
-    broadcastToLobby(lobbyName, { type: 'lobbyState', payload: { players: Array.from(lobby.players.values()).map(p => ({ id: p.id, nickname: p.nickname })), gameState: lobby.gameState } });
+    broadcastToLobby(lobbyName, { type: 'lobbyState', payload: { players: Array.from(lobby.players.values()).map((p, idx) => ({ id: p.id, nickname: p.nickname, playerIndex: Math.min(idx, 3) })), gameState: lobby.gameState } });
   }
 }
 
@@ -159,7 +159,7 @@ wss.on('connection', (ws, req) => {
         delete l.gameState.players[ws.id];
       }
       // Broadcast updated lobby state to all remaining players
-      broadcastToLobby(ws.lobby, { type: 'lobbyState', payload: { players: Array.from(l.players.values()).map(p => ({ id: p.id, nickname: p.nickname })), gameState: l.gameState } });
+      broadcastToLobby(ws.lobby, { type: 'lobbyState', payload: { players: Array.from(l.players.values()).map((p, idx) => ({ id: p.id, nickname: p.nickname, playerIndex: Math.min(idx, 3) })), gameState: l.gameState } });
       // push an updated state snapshot after removal
       scheduleStateSync(ws.lobby, 50);
       
@@ -182,14 +182,25 @@ wss.on('connection', (ws, req) => {
       ws.nickname = String(msg.payload.nickname).slice(0, 32);
       // register player in lobby
       lobby.players.set(ws.id, { id: ws.id, nickname: ws.nickname, ws });
-      //send the client his assigned id
-      ws.send(JSON.stringify({ type: 'joined', payload: { id: ws.id, nickname: ws.nickname } }));
+      
+      // Assign player index based on join order (0-3 for up to 4 players)
+      const playerIndex = Math.min(lobby.players.size - 1, 3);
+      
+      //send the client his assigned id and playerIndex
+      ws.send(JSON.stringify({ 
+        type: 'joined', 
+        payload: { 
+          id: ws.id, 
+          nickname: ws.nickname, 
+          playerIndex: playerIndex 
+        } 
+      }));
       // send a state sync snapshot for late joiners
       ws.send(JSON.stringify({ type: 'stateSync', payload: lobby.gameState }));
       // log join event
-      console.log(`[LOBBY] Player joined: ${ws.nickname} (${ws.id}) | Total: ${lobby.players.size}`);
+      console.log(`[LOBBY] Player joined: ${ws.nickname} (${ws.id}) | Index: ${playerIndex} | Total: ${lobby.players.size}`);
       // broadcast updated lobby state to ALL players (including the one who just joined)
-      broadcastToLobby(ws.lobby, { type: 'lobbyState', payload: { players: Array.from(lobby.players.values()).map(p => ({ id: p.id, nickname: p.nickname })), gameState: lobby.gameState } });
+      broadcastToLobby(ws.lobby, { type: 'lobbyState', payload: { players: Array.from(lobby.players.values()).map((p, idx) => ({ id: p.id, nickname: p.nickname, playerIndex: Math.min(idx, 3) })), gameState: lobby.gameState } });
       // evaluate lobby start logic
       evaluateLobbyStart(ws.lobby);
       return;
@@ -217,9 +228,14 @@ wss.on('connection', (ws, req) => {
         if (payload.type === 'move') {
           lobby.gameState.players[ws.id] = { id: ws.id, row: payload.row, col: payload.col, x: payload.x, y: payload.y, lastUpdate: Date.now() };
         } else if (payload.type === 'placeBomb') {
-          // store event array for clients
+          // store bomb event for clients
           lobby.gameState.events = lobby.gameState.events || [];
           lobby.gameState.events.push({ type: 'placeBomb', by: ws.id, row: payload.row, col: payload.col, ts: Date.now() });
+          if (lobby.gameState.events.length > 200) lobby.gameState.events.shift();
+        } else if (payload.type === 'explode') {
+          // store explosion event for clients
+          lobby.gameState.events = lobby.gameState.events || [];
+          lobby.gameState.events.push({ type: 'explode', by: ws.id, row: payload.row, col: payload.col, range: payload.range, ts: Date.now() });
           if (lobby.gameState.events.length > 200) lobby.gameState.events.shift();
         }
       } catch (err) {

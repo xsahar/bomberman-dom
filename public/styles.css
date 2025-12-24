@@ -364,6 +364,11 @@ body {
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.8);
 }
 
+.remote-bomb {
+    filter: hue-rotate(60deg); /* Slightly different color for remote bombs */
+    opacity: 0.9;
+}
+
 /* Explosion Entity */
 .explosion {
     position: absolute;
@@ -372,6 +377,10 @@ body {
     background: #FF8C00;
     z-index: 5;
     animation: explode 0.5s ease-out;
+}
+
+.remote-explosion {
+    filter: hue-rotate(30deg); /* Slightly different color for remote explosions */
 }
 
 @keyframes explode {
