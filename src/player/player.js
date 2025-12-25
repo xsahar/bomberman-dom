@@ -106,7 +106,8 @@ export class Player {
                         row: this.row,
                         col: this.col,
                         x: this.x,
-                        y: this.y
+                        y: this.y,
+                        direction: this.direction
                     }
                 });
             }

@@ -344,10 +344,12 @@ body {
     top: 0;
     left: 0;
     
-    background-image: url('assets/player.png'); 
-    background-size: contain;
+    background-image: url('assets/player-direction.JPG');
+    /* 2x2 sprite sheet: each frame should fill the box */
+    background-size: 200% 200%;
     background-repeat: no-repeat;
-    background-position: center;
+    /* Default frame: top-left (facing down) */
+    background-position: 0% 0%;
     transition: transform 0.1s linear; 
 }
 

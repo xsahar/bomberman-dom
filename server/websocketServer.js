@@ -226,7 +226,7 @@ wss.on('connection', (ws, req) => {
       try {
         if (!lobby.gameState.players) lobby.gameState.players = {};
         if (payload.type === 'move') {
-          lobby.gameState.players[ws.id] = { id: ws.id, row: payload.row, col: payload.col, x: payload.x, y: payload.y, lastUpdate: Date.now() };
+          lobby.gameState.players[ws.id] = { id: ws.id, row: payload.row, col: payload.col, x: payload.x, y: payload.y, direction: payload.direction, lastUpdate: Date.now() };
         } else if (payload.type === 'placeBomb') {
           // store bomb event for clients
           lobby.gameState.events = lobby.gameState.events || [];

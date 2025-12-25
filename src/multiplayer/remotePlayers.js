@@ -1,6 +1,8 @@
 // RemotePlayersManager: render other players and remote bombs on the map
 import { store } from '../../framework/index.js';
 const TILE_SIZE = 40;
+const PLAYER_SIZE = 32;
+const OFFSET = (TILE_SIZE - PLAYER_SIZE) / 2; // Center player in tile
 
 export class RemotePlayersManager {
   constructor({ wsManager, mapContainer = document.querySelector('.map') } = {}) {
@@ -27,6 +29,8 @@ export class RemotePlayersManager {
     el.dataset.playerId = id;
     el.title = nickname || id;
     el.style.transform = 'translate(-1000px, -1000px)'; // Hide until positioned
+    // Ensure full, non-cut frame before first update
+    el.style.backgroundPosition = '0% 0%';
     this.mapContainer.appendChild(el);
     this.players.set(id, { element: el, nickname: nickname || id });
     console.log(`👤 Added remote player: ${nickname || id} (${id})`);
@@ -45,8 +49,8 @@ export class RemotePlayersManager {
     if (!p || !p.element) return;
     
     // Use exact x,y coordinates if provided, otherwise calculate from row/col
-    const posX = (x !== undefined) ? x : (col * TILE_SIZE);
-    const posY = (y !== undefined) ? y : (row * TILE_SIZE);
+    const posX = (x !== undefined) ? x : (col * TILE_SIZE + OFFSET);
+    const posY = (y !== undefined) ? y : (row * TILE_SIZE + OFFSET);
     
     p.element.style.transform = `translate(${posX}px, ${posY}px)`;
     p.element.style.visibility = 'visible'; // Ensure player is visible
@@ -63,7 +67,21 @@ export class RemotePlayersManager {
     if (this.ws && this.ws.id === playerId) return; // Don't process local player actions
     
     if (type === 'move') {
+      // Update position and facing frame
       this.updatePlayerPosition(playerId, payload.row, payload.col, payload.x, payload.y);
+      if (typeof payload.direction === 'number') {
+        const directionMap = {
+          0: { x: 0, y: 0 },     // down
+          1: { x: 100, y: 0 },   // left
+          2: { x: 100, y: 100 }, // right
+          3: { x: 0, y: 100 }    // up
+        };
+        const pos = directionMap[payload.direction] || directionMap[0];
+        const playerRec = this.players.get(playerId);
+        if (playerRec && playerRec.element) {
+          playerRec.element.style.backgroundPosition = `${pos.x}% ${pos.y}%`;
+        }
+      }
     } else if (type === 'placeBomb') {
       console.log(`💣 Remote player ${playerId} placed bomb at [${payload.row}, ${payload.col}]`);
       this.renderRemoteBomb(payload.row, payload.col);
@@ -216,12 +234,19 @@ export class RemotePlayersManager {
       if (meta && typeof meta.row === 'number' && typeof meta.col === 'number') {
         // Use exact x,y coordinates if available for better positioning
         this.updatePlayerPosition(id, meta.row, meta.col, meta.x, meta.y);
+        // Apply facing direction if present
+        if (typeof meta.direction === 'number') {
+          const directionMap = {
+            0: { x: 0, y: 0 }, 1: { x: 100, y: 0 }, 2: { x: 100, y: 100 }, 3: { x: 0, y: 100 }
+          };
+          const pos = directionMap[meta.direction] || directionMap[0];
+          const rec = this.players.get(id);
+          if (rec && rec.element) rec.element.style.backgroundPosition = `${pos.x}% ${pos.y}%`;
+        }
       }
     });
-    // remove players not present
-    Array.from(this.players.keys()).forEach(id => {
-      if (!playersObj[id]) this.removePlayer(id);
-    });
+    // Do not remove players based on stateSync alone.
+    // Removals are handled via explicit 'playerLeft' events.
   }
 }
 
