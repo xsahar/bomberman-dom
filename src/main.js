@@ -160,10 +160,12 @@ window.addEventListener('load', () => {
             const { ChatManager } = await import('./multiplayer/chat.js');
             const { default: RemotePlayersManager } = await import('./multiplayer/remotePlayers.js');
             const { default: LobbyUI } = await import('./multiplayer/lobby.js');
-            
+
+            // Show the custom nickname modal instead of using prompt()
             let nickname = localStorage.getItem('mp_nick') || '';
             if (!nickname) {
-                nickname = prompt('Enter your nickname:', 'Player_' + Math.floor(Math.random()*9999));
+                nickname = await showNicknameModal();
+                if (!nickname) nickname = 'Player_' + Math.floor(Math.random()*9999);
                 localStorage.setItem('mp_nick', nickname);
             }
 
@@ -249,6 +251,76 @@ window.addEventListener('load', () => {
             console.warn('Multiplayer failed to load', err);
         }
     })();
+
+    // --- Nickname modal helper -------------------------------------------------
+    function showNicknameModal() {
+        return new Promise((resolve) => {
+            const existing = document.querySelector('.title-overlay');
+            if (existing) { existing.remove(); }
+
+            const overlay = document.createElement('div');
+            overlay.className = 'title-overlay show';
+
+            const card = document.createElement('div');
+            card.className = 'title-card';
+
+            const logo = document.createElement('div');
+            logo.className = 'title-logo';
+            logo.textContent = 'BOMBERMAN';
+
+            const sub = document.createElement('div');
+            sub.className = 'title-sub';
+            sub.textContent = 'ENTER YOUR NICKNAME';
+
+            const controls = document.createElement('div');
+            controls.className = 'title-controls';
+
+            const input = document.createElement('input');
+            input.className = 'nickname-input';
+            input.placeholder = 'Player_1234';
+            input.value = '';
+
+            const btn = document.createElement('button');
+            btn.className = 'title-button';
+            btn.textContent = 'START';
+
+            controls.appendChild(input);
+            controls.appendChild(btn);
+
+            card.appendChild(logo);
+            card.appendChild(sub);
+            card.appendChild(controls);
+            overlay.appendChild(card);
+            document.body.appendChild(overlay);
+
+            input.focus();
+
+            function close(v) {
+                overlay.classList.remove('show');
+                overlay.remove();
+                resolve((typeof v === 'string') ? v.trim() : v);
+            }
+
+            btn.addEventListener('click', () => {
+                const val = input.value.trim();
+                if (val.length === 0) return; // ignore empty
+                close(val);
+            });
+
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    const val = input.value.trim();
+                    if (val.length === 0) return;
+                    close(val);
+                }
+            });
+
+            // Allow clicking overlay to focus input
+            overlay.addEventListener('click', (e) => { if (e.target === overlay) input.focus(); });
+        });
+    }
+
+    // (no global exposure of modal helper)
 
     // Keyboard input for bombs
     window.addEventListener('keydown', (e) => {

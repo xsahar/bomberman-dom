@@ -1,5 +1,8 @@
 /* Bomberman DOM Styles */
 
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+
 body {
     margin: 0;
     padding: 0;
@@ -225,6 +228,145 @@ body {
     height: 100vh;
 }
 
+/* Title / Nickname Overlay (Retro Bomberman style) */
+.title-overlay {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(circle at 50% 30%, #111 0%, #000 40%);
+    z-index: 2000;
+    color: #fff;
+    flex-direction: column;
+}
+.title-card {
+    width: 840px;
+    max-width: calc(100% - 48px);
+    background: transparent;
+    text-align: center;
+}
+.title-logo {
+    font-family: 'Press Start 2P', monospace;
+    font-weight: 900;
+    font-size: 92px;
+    color: #ffd24d; /* yellow */
+    letter-spacing: 6px;
+    text-shadow: 0 8px #c13918, 0 10px 0 rgba(0,0,0,0.6);
+    line-height: 0.9;
+    margin: 0 0 18px 0;
+}
+.title-sub {
+    font-family: 'Press Start 2P', monospace;
+    color: #fff;
+    font-size: 14px;
+    opacity: 0.9;
+    margin-bottom: 24px;
+}
+.title-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+}
+.nickname-input {
+    padding: 12px 16px;
+    font-size: 16px;
+    border-radius: 6px;
+    border: 2px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.04);
+    color: #fff;
+    outline: none;
+    width: 260px;
+    box-shadow: 0 4px 18px rgba(0,0,0,0.6) inset;
+}
+.nickname-input::placeholder { color: rgba(255,255,255,0.5); }
+.title-button {
+    padding: 12px 18px;
+    font-size: 16px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    background: linear-gradient(180deg,#ffd24d 0%,#ffb300 100%);
+    color: #2b1a00;
+    font-weight: 800;
+    box-shadow: 0 6px #c13918;
+    font-family: 'Press Start 2P', monospace;
+}
+.title-small {
+    margin-top: 18px;
+    color: rgba(255,255,255,0.7);
+    font-size: 13px;
+}
+
+/* Retro overlay fade-in */
+.title-overlay.show { animation: overlayIn 420ms ease-out; }
+@keyframes overlayIn { from { opacity: 0; transform: scale(0.995);} to { opacity: 1; transform: scale(1);} }
+
+/* Lobby overlay styles */
+.lobby-overlay-inner {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1800;
+    background: linear-gradient(180deg, rgba(0,0,0,0.7), rgba(0,0,0,0.85));
+}
+.lobby-card {
+    width: 880px;
+    max-width: calc(100% - 48px);
+    background: rgba(10,10,10,0.45);
+    border: 4px solid rgba(255,221,77,0.08);
+    padding: 28px;
+    border-radius: 10px;
+    text-align: center;
+    box-shadow: 0 18px 60px rgba(0,0,0,0.7);
+}
+.lobby-logo {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 68px;
+    color: #ffd24d;
+    text-shadow: 0 8px #c13918, 0 12px 24px rgba(0,0,0,0.6);
+    margin-bottom: 8px;
+}
+.lobby-sub { color: rgba(255,255,255,0.75); margin-bottom: 18px; font-family: 'Press Start 2P', monospace; }
+.lobby-player-you { color: #ffd24d; font-weight: 700; text-shadow: none; }
+.lobby-players-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin: 12px 0 18px 0;
+}
+.lobby-slot {
+    background: rgba(255,255,255,0.04);
+    padding: 14px 8px;
+    border-radius: 8px;
+    min-height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    font-weight: 700;
+    color: #fff;
+    border: 2px solid rgba(255,255,255,0.03);
+}
+.lobby-slot-num { color: #ffd24d; font-weight: 900; margin-right: 6px; }
+.lobby-player-name { color: #fff; }
+.lobby-controls { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:8px; }
+.lobby-status { flex:1; text-align:left; }
+.lobby-countdown { font-weight:900; font-size:26px; color:#ffb300; }
+.lobby-actions { display:flex; gap:10px; }
+.lobby-button { padding:12px 18px; border-radius:8px; border:none; cursor:pointer; background:linear-gradient(180deg,#ffd24d,#ffb300); color:#2b1a00; font-weight:900; box-shadow:0 6px #c13918; font-family: 'Press Start 2P', monospace; }
+.lobby-button.ghost { background:transparent; color:#fff; box-shadow:none; border:2px solid rgba(255,255,255,0.06); }
+
+/* Responsive */
+@media (max-width: 720px) {
+    .lobby-players-grid { grid-template-columns: repeat(2, 1fr); }
+    .lobby-card { padding:18px; }
+    .lobby-logo { font-size: 44px; }
+}
+
 .nickname-form {
     margin-bottom: 20px;
 }
@@ -274,16 +416,22 @@ body {
     justify-content: center;
     width: 100%;
     min-height: 100vh;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    /* Bomberman-style background: uses title image if available, with gradient fallback */
+    background-color: #000;
+    background-image: url('assets/title-screen.png'), radial-gradient(circle at 50% 30%, rgba(255,215,77,0.06), rgba(0,0,0,0.45)), linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background-size: cover, cover, auto;
+    background-position: center center, center center, center center;
+    background-blend-mode: overlay, normal;
     padding: 20px;
     box-sizing: border-box;
 }
 
 .game-root h1 {
     color: white;
-    font-size: 3em;
+    font-size: 2.2em;
     margin-bottom: 30px;
     text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+    font-family: 'Press Start 2P', monospace;
 }
 
 /* Map Grid */
@@ -542,6 +690,14 @@ body {
     align-items: center;
     justify-content: center;
     animation: countdown-glow 1.2s ease-in-out infinite alternate;
+
+    /* Use pixel / arcade font for the large countdown numbers */
+    font-family: 'Press Start 2P', monospace;
+}
+
+/* Make the lobby status message use the same pixel font */
+#lobby-message {
+    font-family: 'Press Start 2P', monospace;
 }
 
 @keyframes countdown-glow {
