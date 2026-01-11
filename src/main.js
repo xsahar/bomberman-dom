@@ -101,6 +101,17 @@ function initPlayer() {
         spawnCol: spawn.col
     });
 
+    // Expose player globally so remote handlers can access and apply damage
+    window.player = player;
+
+    // Attach a LivesUI for the main player so onPlayerHit and other parts work
+    try {
+        player.livesUI = new LivesUI({ parentElement: document.body, maxLives: player.lives });
+        store.setState({ playerLives: player.lives });
+    } catch (err) {
+        console.warn('Failed to create LivesUI for player', err);
+    }
+
   
 
     bombPlacer = new BombPlacement();
@@ -263,24 +274,32 @@ window.addEventListener('load', () => {
                 
                 newBomb.timerId = setTimeout(() => {
                     const removed = bombPlacer.removeBomb(newBomb.id, newBomb.element);
-                    explosionSystem.triggerExplosion(removed || newBomb, mapData, player);
-                    
-                    // Sync explosion with other players
+                    const bomb = removed || newBomb;
+
+                    // Calculate affected tiles so we can notify other clients
+                    const affectedTiles = explosionSystem.calculateExplosionRange(bomb, mapData);
+
+                    // Local explosion processing
+                    explosionSystem.triggerExplosion(bomb, mapData, player);
+
+                    // Sync explosion with other players (include affected tiles)
                     if (window.mpWS?.ws?.readyState === 1) {
                         window.mpWS.send({
                             type: 'action',
                             payload: {
                                 playerId: window.mpWS.id,
                                 type: 'explode',
-                                row: (removed || newBomb).row,
-                                col: (removed || newBomb).col,
+                                row: bomb.row,
+                                col: bomb.col,
                                 range: player.bombRange,
+                                affectedTiles: affectedTiles,
                                 timestamp: Date.now()
                             }
                         });
                     }
-                    
-                    if (player.isInExplosion(removed || newBomb)) {
+
+                    // If local player stands on any affected tile, register hit
+                    if (Array.isArray(affectedTiles) && affectedTiles.some(t => player.row === t.row && player.col === t.col)) {
                         onPlayerHit();
                     }
                 }, bombPlacer.BOMB_TIMER);

@@ -88,6 +88,39 @@ export class RemotePlayersManager {
     } else if (type === 'explode') {
       console.log(`💥 Remote player ${playerId} explosion at [${payload.row}, ${payload.col}]`);
       this.handleRemoteExplosion(payload);
+
+      // Determine affected tiles (prefer payload.affectedTiles if provided)
+      let affectedTiles = [];
+      if (Array.isArray(payload.affectedTiles) && payload.affectedTiles.length > 0) {
+        affectedTiles = payload.affectedTiles;
+      } else {
+        // Fallback calculation using center + range
+        const { row, col, range = 1 } = payload;
+        affectedTiles.push({ row, col });
+        const directions = [ { dr: -1, dc: 0 }, { dr: 1, dc: 0 }, { dr: 0, dc: -1 }, { dr: 0, dc: 1 } ];
+        directions.forEach(({ dr, dc }) => {
+          for (let i = 1; i <= range; i++) {
+            const r = row + (dr * i);
+            const c = col + (dc * i);
+            if (r >= 0 && c >= 0 && r < 13 && c < 15) {
+              affectedTiles.push({ row: r, col: c });
+            }
+          }
+        });
+      }
+
+      // If local player exists and is on any affected tile, apply damage
+      try {
+        if (window.player && typeof window.player.applyDamage === 'function') {
+          const localPlayer = window.player;
+          if (affectedTiles.some(t => localPlayer.row === t.row && localPlayer.col === t.col)) {
+            console.log('😵 Local player hit by remote explosion, applying damage');
+            localPlayer.applyDamage(1);
+          }
+        }
+      } catch (err) {
+        console.warn('Error applying remote explosion damage to local player', err);
+      }
     } else if (type === 'mapUpdate') {
       console.log(`🗺️ Map update from player ${playerId}`);
       this.handleMapUpdate(payload);
