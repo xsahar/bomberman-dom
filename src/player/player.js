@@ -34,6 +34,12 @@ export class Player {
         // --- 2. Create player DOM element ---
         this.element = document.createElement('div');
         this.element.className = 'player';
+        // Add a label above the local player showing their nickname
+        const nick = (typeof localStorage !== 'undefined' && localStorage.getItem('mp_nick')) ? localStorage.getItem('mp_nick') : this.id;
+        const nameLabel = document.createElement('div');
+        nameLabel.className = 'player-name';
+        nameLabel.textContent = nick;
+        this.element.appendChild(nameLabel);
         const mapContainer = document.querySelector('.map');
         if (!mapContainer) {
             console.error("❌ CRITICAL ERROR: .map container missing!");
@@ -42,8 +48,7 @@ export class Player {
         mapContainer.appendChild(this.element);
         console.log("✅ Player element added to DOM");
 
-        // --- 3. Create Lives UI ---
-        this.createLivesUI();
+        // Lives UI is provided by `LivesUI` (created by main), not here.
 
         // --- 4. Keyboard input handling ---
         this.keys = {};
@@ -67,7 +72,6 @@ export class Player {
         // --- 6. Initial render ---
         this.render(); 
         console.log("✅ Player Rendered Successfully");
-        this.updateLivesUI();
     }
 
     // --- Movement Update ---
@@ -160,24 +164,15 @@ export class Player {
 
     // --- Lives UI ---
     createLivesUI() {
-        let container = document.querySelector(`#lives-${this.id}`);
-        if (!container) {
-            container = document.createElement('div');
-            container.id = `lives-${this.id}`;
-            container.className = 'player-lives';
-            document.body.appendChild(container);
-        }
-        this.updateLivesUI();
+        // legacy: removed in favor of centralized `LivesUI` component
+        return;
     }
 
     updateLivesUI() {
-        const container = document.querySelector(`#lives-${this.id}`);
-        if (!container) return;
-        container.innerHTML = '';
-        for (let i=0;i<this.lives;i++) {
-            const heart = document.createElement('span');
-            heart.className = 'heart new';
-            container.appendChild(heart);
+        // keep API but delegate to LivesUI when available
+        if (this.livesUI && typeof this.livesUI.renderHearts === 'function') {
+            this.livesUI.currentLives = this.lives;
+            this.livesUI.renderHearts();
         }
     }
 
@@ -250,7 +245,14 @@ export class Player {
         if (this._powerupTimers) {
             (this._powerupTimers.bombs || []).forEach(t => clearTimeout(t));
             (this._powerupTimers.flames || []).forEach(t => clearTimeout(t));
-            this._powerupTimers = { bombs: [], flames: [] };
+            (this._powerupTimers.speed || []).forEach(t => clearTimeout(t));
+            this._powerupTimers = { bombs: [], flames: [], speed: [] };
+        }
+        try {
+            const pm = getPowerupManager();
+            pm.clearActiveForPlayer(this.id);
+        } catch (err) {
+            // ignore if powerup manager not available
         }
     }
 

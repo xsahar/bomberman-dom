@@ -116,7 +116,7 @@ export class LobbyUI {
     } else if (gameState.state === 'playing') {
       this.currentState = 'playing';
       this.hide();
-      if (this.onGameStart) this.onGameStart(gameState);
+      if (this.onGameStart) this.onGameStart(state);
     }
   }
 

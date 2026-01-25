@@ -14,12 +14,8 @@ export class LivesUI {
     createUI() {
         // Create a container for hearts
         this.container = document.createElement('div');
-        this.container.className = 'lives-container';
-        this.container.style.position = 'absolute';
-        this.container.style.top = '10px';
-        this.container.style.left = '10px';
-        this.container.style.display = 'flex';
-        this.container.style.gap = '5px';
+        // use the existing `player-lives` styles
+        this.container.className = 'player-lives';
         this.parentElement.appendChild(this.container);
 
         // Create heart elements

@@ -11,9 +11,17 @@ export class RemotePlayersManager {
     this.players = new Map(); // id => { element, nickname }
   }
 
-  addPlayer({ id, nickname }) {
+  addPlayer({ id, nickname, clientId } = {}) {
     if (!id || !this.mapContainer) return;
-    if (this.ws && this.ws.id === id) return; // Don't render local player
+    // If this entry represents the local websocket id, skip rendering
+    if (this.ws && this.ws.id === id) return;
+    // If this entry's clientId matches our local stored client id, it's the same browser/tab identity — skip to avoid duplicates
+    try {
+      const localClientId = (typeof localStorage !== 'undefined') ? localStorage.getItem('mp_client_id') : null;
+      if (clientId && localClientId && clientId === localClientId) return;
+    } catch (err) {
+      // ignore storage errors
+    }
     if (this.players.has(id)) {
       // Player already exists, just update nickname if changed
       const existingPlayer = this.players.get(id);
@@ -28,6 +36,23 @@ export class RemotePlayersManager {
     el.className = 'player remote-player';
     el.dataset.playerId = id;
     el.title = nickname || id;
+    // avoid duplicates: if a player with same nickname already exists in DOM, skip adding
+    try {
+      const existingLabel = this.mapContainer.querySelector('.player .player-name, .player.remote-player .player-name');
+      const localNick = (typeof localStorage !== 'undefined') ? localStorage.getItem('mp_nick') : null;
+      if (nickname && localNick && nickname === localNick && existingLabel && existingLabel.textContent === nickname) {
+        // A label with the same nickname is already present (likely local); skip remote rendering
+        return;
+      }
+    } catch (err) {
+      // ignore DOM/storage errors
+    }
+
+    // add visible name label above the player
+    const nameLabel = document.createElement('div');
+    nameLabel.className = 'player-name';
+    nameLabel.textContent = nickname || id;
+    el.appendChild(nameLabel);
     el.style.transform = 'translate(-1000px, -1000px)'; // Hide until positioned
     // Ensure full, non-cut frame before first update
     el.style.backgroundPosition = '0% 0%';
@@ -275,13 +300,29 @@ export class RemotePlayersManager {
 
   syncState(state) {
     if (!state) return;
-    const playersObj = state.players || {};
+    const playersList = state.players || [];
+    // support both array and object forms for players
+    if (Array.isArray(playersList)) {
+      playersList.forEach(meta => {
+        if (!meta) return;
+        const id = meta.id;
+        if (this.ws && this.ws.id === id) return; // Skip local player
+        this.addPlayer({ id, nickname: meta.nickname, clientId: meta.clientId });
+        if (meta && typeof meta.row === 'number' && typeof meta.col === 'number') {
+          // Use exact x,y coordinates if available for better positioning
+          this.updatePlayerPosition(id, meta.row, meta.col, meta.x, meta.y);
+        }
+      });
+      return;
+    }
+
+    const playersObj = playersList;
     const ids = Object.keys(playersObj);
     // ensure players exist
     ids.forEach(id => {
       if (this.ws && this.ws.id === id) return; // Skip local player
       const meta = playersObj[id];
-      this.addPlayer({ id, nickname: meta && meta.nickname });
+      this.addPlayer({ id, nickname: meta && meta.nickname, clientId: meta && meta.clientId });
       if (meta && typeof meta.row === 'number' && typeof meta.col === 'number') {
         // Use exact x,y coordinates if available for better positioning
         this.updatePlayerPosition(id, meta.row, meta.col, meta.x, meta.y);

@@ -54,6 +54,15 @@ export class ChatManager {
     this.wsManager.on('chat', (payload) => this.displayMessage(payload.author, payload.text, payload.ts, payload.id));
     this.wsManager.on('joined', (payload) => { this.meId = payload && payload.id; });
     this.wsManager.on('disconnected', () => { this.meId = null; });
+    // Auto-collapse chat when game enters playing state
+    this.wsManager.on('lobbyState', (payload) => {
+      try {
+        const gs = payload && payload.gameState;
+        if (gs && gs.state === 'playing') {
+          this.collapse();
+        }
+      } catch (e) { /* ignore */ }
+    });
   }
 
   _onSend() {
@@ -92,6 +101,19 @@ export class ChatManager {
   _toggle() {
     const collapsed = this.chatEl.classList.toggle('collapsed');
     if (!collapsed) { this.unread = 0; this._updateUnread(); }
+  }
+
+  // Programmatic collapse/open helpers
+  collapse() {
+    if (!this.chatEl) return;
+    this.chatEl.classList.add('collapsed');
+  }
+
+  expand() {
+    if (!this.chatEl) return;
+    const wasCollapsed = this.chatEl.classList.contains('collapsed');
+    this.chatEl.classList.remove('collapsed');
+    if (wasCollapsed) { this.unread = 0; this._updateUnread(); }
   }
 }
 

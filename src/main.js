@@ -211,13 +211,28 @@ window.addEventListener('load', () => {
 
             const lobby = new LobbyUI({
                 wsManager: ws,
-                onGameStart: (gameState) => {
+                onGameStart: (state) => {
                     if (gameStarted) return;
                     gameStarted = true;
-                    // Store playerIndex on ws object for access in initPlayer
-                    ws.playerIndex = playerIndex;
+                    // Determine this client's playerIndex from the lobby state (server authoritative)
+                    try {
+                        const players = (state && state.players) ? state.players : [];
+                        const localId = ws.id;
+                        let assignedIndex = players.findIndex(p => p.id === localId);
+                        if (assignedIndex === -1) {
+                            // fallback: try to match nickname
+                            const nick = localStorage.getItem('mp_nick') || '';
+                            assignedIndex = players.findIndex(p => p.nickname === nick);
+                        }
+                        if (assignedIndex >= 0) {
+                            ws.playerIndex = players[assignedIndex].playerIndex !== undefined ? players[assignedIndex].playerIndex : assignedIndex;
+                        }
+                    } catch (err) { /* ignore */ }
+
+                    // Now spawn the player at the correct corner
                     initPlayer();
-                    const startedAt = gameState && gameState.startedAt ? gameState.startedAt : null;
+
+                    const startedAt = state && state.gameState && state.gameState.startedAt ? state.gameState.startedAt : null;
                     const duration = store.getState().gameTime || 120;
                     startTimer(startedAt, duration);
                 }
@@ -274,6 +289,13 @@ window.addEventListener('load', () => {
                             rpm.addPlayer(p);
                             // Position new players at their spawn points
                             const playerIndex = p.playerIndex !== undefined ? p.playerIndex : index;
+                            // If this entry corresponds to the local client, store the playerIndex on the ws
+                            try {
+                                if (ws && ((p.id && ws.id && p.id === ws.id) || (p.nickname && p.nickname === nickname))) {
+                                    ws.playerIndex = playerIndex;
+                                    playerIndex = playerIndex; // keep for positioning
+                                }
+                            } catch (err) { /* ignore */ }
                             const spawn = spawnPositions[playerIndex] || spawnPositions[0];
                             const spawnX = spawn.col * 40 + 4; // TILE_SIZE * col + OFFSET
                             const spawnY = spawn.row * 40 + 4; // TILE_SIZE * row + OFFSET

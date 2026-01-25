@@ -67,7 +67,7 @@ function getPlayersForBroadcast(lobby) {
     seen.add(key);
     out.push({ id: p.id, nickname: p.nickname, clientId: p.clientId });
   });
-  return out.map((p, idx) => ({ id: p.id, nickname: p.nickname, playerIndex: Math.min(idx, 3) }));
+  return out.map((p, idx) => ({ id: p.id, nickname: p.nickname, clientId: p.clientId, playerIndex: Math.min(idx, 3) }));
 }
 
 // Helper: broadcast to players in the same lobby
