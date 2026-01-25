@@ -34,6 +34,22 @@ body {
     background: #34495e;
 }
 
+/* Sidebar showing active powerups */
+.powerup-panel {
+    width: 180px;
+    background: rgba(0,0,0,0.6);
+    border-radius: 10px;
+    padding: 12px;
+    color: #fff;
+    font-weight: 700;
+    border: 1px solid rgba(255,255,255,0.04);
+}
+.powerup-panel h3 { margin: 0 0 8px 0; font-size: 14px; color: #ffd24d; font-family: 'Press Start 2P', monospace; }
+.powerup-row { padding: 6px 8px; background: rgba(255,255,255,0.02); border-radius: 6px; margin-bottom: 8px; font-size: 13px; }
+
+/* Ensure the map container doesn't stretch the whole page when sidebar present */
+.map { width: calc(40px * 15); height: calc(40px * 13); }
+
 /* UI Elements */
 .ui-container {
     position: fixed;
@@ -872,4 +888,20 @@ body {
     cursor:pointer;
     font-weight:700;
 }
+
+/* Time-up overlay */
+.timeup-overlay {
+    position: fixed;
+    top:0; left:0; right:0; bottom:0;
+    display:flex; align-items:center; justify-content:center;
+    background: rgba(0,0,0,0.85);
+    z-index: 9998;
+    opacity: 0; pointer-events: none; transition: opacity 0.25s ease;
+}
+.timeup-overlay.active { opacity: 1; pointer-events: all; }
+.timeup-card { text-align:center; color:#fff; padding:24px 32px; border-radius:12px; }
+.timeup-emoji { font-size:64px; margin-bottom:8px; }
+.timeup-title { font-size:36px; font-weight:800; margin-bottom:6px; }
+.timeup-sub { opacity:0.85; margin-bottom:12px; }
+.timeup-actions button { padding:10px 20px; border-radius:8px; border:none; background:#ffd24d; font-weight:800; cursor:pointer; }
 

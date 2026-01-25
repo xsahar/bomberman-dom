@@ -34,8 +34,14 @@ export class WebSocketManager {
     this.ws.addEventListener('open', () => {
       this._reconnectAttempts = 0;
       this._dispatch('connected');
-      // send join message
-      this.send({ type: 'join', payload: { nickname: this.nickname } });
+      // ensure a persistent client id so multiple tabs from same browser reuse identity
+      let clientId = localStorage.getItem('mp_client_id');
+      if (!clientId) {
+        clientId = Math.random().toString(36).slice(2, 10);
+        try { localStorage.setItem('mp_client_id', clientId); } catch (e) { /* ignore */ }
+      }
+      // send join message with persistent client id
+      this.send({ type: 'join', payload: { nickname: this.nickname, clientId } });
     });
 
     this.ws.addEventListener('message', (e) => {

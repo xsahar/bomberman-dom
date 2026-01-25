@@ -40,6 +40,36 @@ function ensureLobby(name = 'main') {
   return lobbies.get(name);
 }
 
+// Ensure a nickname is unique within a lobby by appending a numeric suffix when needed
+function generateUniqueNickname(lobby, desired) {
+  if (!lobby || !desired) return desired || 'Player';
+  const taken = new Set(Array.from(lobby.players.values()).map(p => String(p.nickname || '').toLowerCase()));
+  let base = String(desired).trim();
+  if (base.length === 0) base = 'Player';
+  let candidate = base;
+  let idx = 1;
+  while (taken.has(candidate.toLowerCase())) {
+    idx += 1;
+    candidate = `${base} (${idx})`;
+    if (idx > 1000) break;
+  }
+  return candidate;
+}
+
+// Return a deduplicated list of players for broadcasting (one entry per clientId when present)
+function getPlayersForBroadcast(lobby) {
+  if (!lobby) return [];
+  const seen = new Set();
+  const out = [];
+  Array.from(lobby.players.values()).forEach(p => {
+    const key = p.clientId || p.id;
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push({ id: p.id, nickname: p.nickname, clientId: p.clientId });
+  });
+  return out.map((p, idx) => ({ id: p.id, nickname: p.nickname, playerIndex: Math.min(idx, 3) }));
+}
+
 // Helper: broadcast to players in the same lobby
 function broadcastToLobby(lobbyName, msgObj) {
   const data = JSON.stringify(msgObj);
@@ -79,11 +109,11 @@ function startLobbyCountdown(lobbyName) {
   cleanupLobbyTimers(lobby);
   let remaining = Math.floor(lobby.countdownMs / 1000);
   lobby.gameState = { state: 'starting', countdown: remaining };
-  broadcastToLobby(lobbyName, { type: 'lobbyState', payload: { players: Array.from(lobby.players.values()).map((p, idx) => ({ id: p.id, nickname: p.nickname, playerIndex: Math.min(idx, 3) })), gameState: lobby.gameState } });
+  broadcastToLobby(lobbyName, { type: 'lobbyState', payload: { players: getPlayersForBroadcast(lobby), gameState: lobby.gameState } });
   lobby._countdownInterval = setInterval(() => {
     remaining -= 1;
     lobby.gameState.countdown = remaining;
-    broadcastToLobby(lobbyName, { type: 'lobbyState', payload: { players: Array.from(lobby.players.values()).map((p, idx) => ({ id: p.id, nickname: p.nickname, playerIndex: Math.min(idx, 3) })), gameState: lobby.gameState } });
+    broadcastToLobby(lobbyName, { type: 'lobbyState', payload: { players: getPlayersForBroadcast(lobby), gameState: lobby.gameState } });
   }, 1000);
   lobby._countdownTimer = setTimeout(() => {
     cleanupLobbyTimers(lobby);
@@ -95,7 +125,7 @@ function startGameForLobby(lobbyName) {
   const lobby = lobbies.get(lobbyName);
   if (!lobby) return;
   lobby.gameState = { state: 'playing', startedAt: Date.now() };
-  broadcastToLobby(lobbyName, { type: 'lobbyState', payload: { players: Array.from(lobby.players.values()).map((p, idx) => ({ id: p.id, nickname: p.nickname, playerIndex: Math.min(idx, 3) })), gameState: lobby.gameState } });
+  broadcastToLobby(lobbyName, { type: 'lobbyState', payload: { players: getPlayersForBroadcast(lobby), gameState: lobby.gameState } });
   // Broadcast shared map to all players at game start
   if (lobby.sharedMap) {
     broadcastToLobby(lobbyName, { type: 'mapSync', payload: lobby.sharedMap });
@@ -117,14 +147,14 @@ function evaluateLobbyStart(lobbyName) {
       startLobbyCountdown(lobbyName);
     }, lobby.waitDurationMs);
     lobby.gameState = { state: 'waiting', waitEndsAt: Date.now() + lobby.waitDurationMs };
-    broadcastToLobby(lobbyName, { type: 'lobbyState', payload: { players: Array.from(lobby.players.values()).map((p, idx) => ({ id: p.id, nickname: p.nickname, playerIndex: Math.min(idx, 3) })), gameState: lobby.gameState } });
+    broadcastToLobby(lobbyName, { type: 'lobbyState', payload: { players: getPlayersForBroadcast(lobby), gameState: lobby.gameState } });
     return;
   }
   // Not enough players -> ensure cleared
   if (count < lobby.minPlayers) {
     cleanupLobbyTimers(lobby);
     lobby.gameState = { state: 'lobby' };
-    broadcastToLobby(lobbyName, { type: 'lobbyState', payload: { players: Array.from(lobby.players.values()).map((p, idx) => ({ id: p.id, nickname: p.nickname, playerIndex: Math.min(idx, 3) })), gameState: lobby.gameState } });
+    broadcastToLobby(lobbyName, { type: 'lobbyState', payload: { players: getPlayersForBroadcast(lobby), gameState: lobby.gameState } });
   }
 }
 
@@ -159,7 +189,7 @@ wss.on('connection', (ws, req) => {
         delete l.gameState.players[ws.id];
       }
       // Broadcast updated lobby state to all remaining players
-      broadcastToLobby(ws.lobby, { type: 'lobbyState', payload: { players: Array.from(l.players.values()).map((p, idx) => ({ id: p.id, nickname: p.nickname, playerIndex: Math.min(idx, 3) })), gameState: l.gameState } });
+      broadcastToLobby(ws.lobby, { type: 'lobbyState', payload: { players: getPlayersForBroadcast(l), gameState: l.gameState } });
       // push an updated state snapshot after removal
       scheduleStateSync(ws.lobby, 50);
       
@@ -179,9 +209,30 @@ wss.on('connection', (ws, req) => {
 
     // Handle join (initial) message
     if (msg.type === 'join' && msg.payload && msg.payload.nickname) {
-      ws.nickname = String(msg.payload.nickname).slice(0, 32);
-      // register player in lobby
-      lobby.players.set(ws.id, { id: ws.id, nickname: ws.nickname, ws });
+      const requested = String(msg.payload.nickname).slice(0, 32);
+      const clientId = msg.payload.clientId ? String(msg.payload.clientId).slice(0, 64) : null;
+      const ip = (req && req.socket && req.socket.remoteAddress) ? req.socket.remoteAddress : (req && req.headers && req.headers['x-forwarded-for']) || null;
+
+      // Try to find an existing player by clientId first, fall back to matching nickname+ip
+      let existing = null;
+      if (clientId) {
+        existing = Array.from(lobby.players.values()).find(p => p.clientId === clientId);
+      }
+      if (!existing && !clientId && ip) {
+        existing = Array.from(lobby.players.values()).find(p => p.nickname === requested && p.ip === ip);
+      }
+
+      if (existing) {
+        // reuse nickname from existing entry
+        ws.nickname = existing.nickname || requested;
+        // remove old entry and replace with this ws (keep single entry per clientId/ip)
+        lobby.players.delete(existing.id);
+        lobby.players.set(ws.id, { id: ws.id, nickname: ws.nickname, ws, clientId, ip });
+      } else {
+        // enforce uniqueness across different clients
+        ws.nickname = generateUniqueNickname(lobby, requested).slice(0, 32);
+        lobby.players.set(ws.id, { id: ws.id, nickname: ws.nickname, ws, clientId, ip });
+      }
       
       // Assign player index based on join order (0-3 for up to 4 players)
       const playerIndex = Math.min(lobby.players.size - 1, 3);
@@ -200,7 +251,7 @@ wss.on('connection', (ws, req) => {
       // log join event
       console.log(`[LOBBY] Player joined: ${ws.nickname} (${ws.id}) | Index: ${playerIndex} | Total: ${lobby.players.size}`);
       // broadcast updated lobby state to ALL players (including the one who just joined)
-      broadcastToLobby(ws.lobby, { type: 'lobbyState', payload: { players: Array.from(lobby.players.values()).map((p, idx) => ({ id: p.id, nickname: p.nickname, playerIndex: Math.min(idx, 3) })), gameState: lobby.gameState } });
+      broadcastToLobby(ws.lobby, { type: 'lobbyState', payload: { players: getPlayersForBroadcast(lobby), gameState: lobby.gameState } });
       // evaluate lobby start logic
       evaluateLobbyStart(ws.lobby);
       return;

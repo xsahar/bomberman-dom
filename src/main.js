@@ -52,19 +52,55 @@ function formatTime(seconds) {
     return `${m}:${s}`;
 }
 
-// Countdown timer
-function startTimer() {
+// Countdown timer — accepts optional server `startedAt` timestamp to sync
+function startTimer(startedAt = null, durationSeconds = 120) {
     clearInterval(timerInterval);
-    timerInterval = setInterval(() => {
-        const state = store.getState();
-        if (state.gameTime <= 0) {
-            clearInterval(timerInterval);
-            alert('⏱️ Time is up!');
-            return;
+
+    function tick() {
+        let remaining = durationSeconds;
+        if (startedAt) {
+            const elapsed = Math.floor((Date.now() - startedAt) / 1000);
+            remaining = Math.max(0, durationSeconds - elapsed);
+        } else {
+            const state = store.getState();
+            remaining = Math.max(0, (typeof state.gameTime === 'number' ? state.gameTime : durationSeconds));
+            // decrement for local-only timer
+            remaining = Math.max(0, remaining - 1);
+            store.setState({ gameTime: remaining });
         }
-        store.setState({ gameTime: state.gameTime - 1 });
-        document.getElementById('game-timer').textContent = formatTime(store.getState().gameTime);
-    }, 1000);
+
+        const el = document.getElementById('game-timer');
+        if (el) el.textContent = formatTime(remaining);
+
+        if (remaining <= 0) {
+            clearInterval(timerInterval);
+            showTimeUpOverlay();
+        }
+    }
+
+    // initial tick and interval
+    tick();
+    timerInterval = setInterval(tick, 1000);
+}
+
+// Show a full-screen overlay when time is up
+function showTimeUpOverlay() {
+        let overlay = document.querySelector('.timeup-overlay');
+        if (!overlay) {
+                overlay = document.createElement('div');
+                overlay.className = 'timeup-overlay';
+                overlay.innerHTML = `
+                    <div class="timeup-card">
+                        <div class="timeup-emoji">⏱️</div>
+                        <div class="timeup-title">Time is up!</div>
+                        <div class="timeup-sub">The round has ended.</div>
+                        <div class="timeup-actions"><button id="timeup-restart">Restart</button></div>
+                    </div>`;
+                document.body.appendChild(overlay);
+                const btn = overlay.querySelector('#timeup-restart');
+                if (btn) btn.addEventListener('click', () => location.reload());
+        }
+        overlay.classList.add('active');
 }
 
 // Handle player hit and lose lives
@@ -175,13 +211,15 @@ window.addEventListener('load', () => {
 
             const lobby = new LobbyUI({
                 wsManager: ws,
-                onGameStart: () => {
+                onGameStart: (gameState) => {
                     if (gameStarted) return;
                     gameStarted = true;
                     // Store playerIndex on ws object for access in initPlayer
                     ws.playerIndex = playerIndex;
                     initPlayer();
-                    startTimer();
+                    const startedAt = gameState && gameState.startedAt ? gameState.startedAt : null;
+                    const duration = store.getState().gameTime || 120;
+                    startTimer(startedAt, duration);
                 }
             });
 

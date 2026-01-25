@@ -192,6 +192,17 @@ export class Player {
         if (this.lives <= 0) {
             this.die();
             this.showEndGameMessage('💀 You Lost!');
+            // Notify server/other clients that this player died so others can react
+            try {
+                if (window.mpWS?.ws?.readyState === 1) {
+                    window.mpWS.send({
+                        type: 'action',
+                        payload: { type: 'died' }
+                    });
+                }
+            } catch (err) {
+                console.warn('Failed to send died action', err);
+            }
         } else {
             this.respawnAtSpawn();
         }

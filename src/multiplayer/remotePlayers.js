@@ -85,6 +85,22 @@ export class RemotePlayersManager {
     } else if (type === 'placeBomb') {
       console.log(`💣 Remote player ${playerId} placed bomb at [${payload.row}, ${payload.col}]`);
       this.renderRemoteBomb(payload.row, payload.col);
+    } else if (type === 'died') {
+      console.log(`☠️ Remote player ${playerId} died`);
+      // remove remote player's visual
+      this.removePlayer(playerId);
+      // If local player exists and is alive, and no remote players remain, show local win
+      try {
+        if (window.player && !window.player.dead) {
+          if (this.players.size === 0) {
+            if (typeof window.player.showEndGameMessage === 'function') {
+              window.player.showEndGameMessage('🎉 You Won!');
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Error handling remote death', err);
+      }
     } else if (type === 'explode') {
       console.log(`💥 Remote player ${playerId} explosion at [${payload.row}, ${payload.col}]`);
       this.handleRemoteExplosion(payload);
@@ -255,6 +271,8 @@ export class RemotePlayersManager {
     });
   }
 
+
+
   syncState(state) {
     if (!state) return;
     const playersObj = state.players || {};
@@ -278,6 +296,7 @@ export class RemotePlayersManager {
         }
       }
     });
+    
     // Do not remove players based on stateSync alone.
     // Removals are handled via explicit 'playerLeft' events.
   }
