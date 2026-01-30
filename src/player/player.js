@@ -90,45 +90,72 @@ export class Player {
     move(dx, dy) {
         const nextX = this.x + dx;
         const nextY = this.y + dy;
+        
+        // Try full movement first
         if (!this.checkCollision(nextX, nextY)) {
             this.x = nextX;
             this.y = nextY;
-
-            const centerX = this.x + PLAYER_SIZE / 2;
-            const centerY = this.y + PLAYER_SIZE / 2;
-            this.col = Math.floor(centerX / TILE_SIZE);
-            this.row = Math.floor(centerY / TILE_SIZE);
-
-            this.render();
-
-            // Multiplayer sync
-            if (window.mpWS?.ws?.readyState === 1) {
-                window.mpWS.send({
-                    type: 'action',
-                    payload: {
-                        type: 'move',
-                        row: this.row,
-                        col: this.col,
-                        x: this.x,
-                        y: this.y,
-                        direction: this.direction
-                    }
-                });
+        } else {
+            // If diagonal movement fails, try sliding along one axis
+            // Try horizontal movement only
+            if (dx !== 0 && !this.checkCollision(nextX, this.y)) {
+                this.x = nextX;
             }
+            // Try vertical movement only
+            if (dy !== 0 && !this.checkCollision(this.x, nextY)) {
+                this.y = nextY;
+            }
+        }
 
-            // Check for powerups
-            try {
-                const state = store.getState();
-                const powerups = state.powerups || [];
-                const found = powerups.find(p => p.row === this.row && p.col === this.col);
-                if (found) {
-                    const pm = getPowerupManager();
-                    pm.collectPowerup(this.id, found.id, this);
-                    console.log(`🔋 Powerup collected: ${found.type} at [${this.row},${this.col}]`);
+        // Update grid position
+        const centerX = this.x + PLAYER_SIZE / 2;
+        const centerY = this.y + PLAYER_SIZE / 2;
+        this.col = Math.floor(centerX / TILE_SIZE);
+        this.row = Math.floor(centerY / TILE_SIZE);
+
+        this.render();
+
+        // Multiplayer sync
+        if (window.mpWS?.ws?.readyState === 1) {
+            window.mpWS.send({
+                type: 'action',
+                payload: {
+                    type: 'move',
+                    row: this.row,
+                    col: this.col,
+                    x: this.x,
+                    y: this.y,
+                    direction: this.direction
                 }
-            } catch (err) {
-                console.error('Error checking/collecting powerup:', err);
+            });
+        }
+
+        // Check for powerups
+        try {
+            const state = store.getState();
+            const powerups = state.powerups || [];
+            const found = powerups.find(p => p.row === this.row && p.col === this.col);
+            if (found) {
+                const pm = getPowerupManager();
+                pm.collectPowerup(this.id, found.id, this);
+                console.log(`🔋 Powerup collected: ${found.type} at [${this.row},${this.col}]`);
+                
+                // Broadcast powerup collection to other players (use row/col as identifier)
+                if (window.mpWS?.ws?.readyState === 1) {
+                    window.mpWS.send({
+                        type: 'action',
+                        payload: {
+                            type: 'powerupCollected',
+                            row: this.row,
+                            col: this.col,
+                            powerupType: found.type
+                        }
+                    });
+                    console.log(`📡 Broadcast powerup collected at [${this.row}, ${this.col}]`);
+                }
             }
+        } catch (err) {
+            console.error('Error checking/collecting powerup:', err);
         }
     }
 
@@ -236,6 +263,23 @@ export class Player {
             if (mapContainer) mapContainer.appendChild(this.element);
         }
         this.render();
+        
+        // Broadcast respawn position to other players
+        if (window.mpWS?.ws?.readyState === 1) {
+            window.mpWS.send({
+                type: 'action',
+                payload: {
+                    type: 'move',
+                    row: this.row,
+                    col: this.col,
+                    x: this.x,
+                    y: this.y,
+                    direction: this.direction
+                }
+            });
+            console.log(`📡 Broadcast respawn position: row=${this.row}, col=${this.col}`);
+        }
+        this.render();
     }
 
     resetPowerups() {
@@ -276,6 +320,7 @@ export class Player {
             overlay.querySelector('div').textContent = msg;
         }
         overlay.classList.add('active');
+        try { if (window.stopGame) window.stopGame('ended'); } catch (e) { /* ignore */ }
     }
 
     // --- Win Check (call after moves/bombs) ---

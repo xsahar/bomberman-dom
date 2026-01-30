@@ -16,6 +16,7 @@ const wss = new WebSocket.Server({ port: PORT }, () => {
   console.log(`WebSocket server listening on ws://localhost:${PORT}`);
 });
 
+
 // Lobby management
 const lobbies = new Map();
 

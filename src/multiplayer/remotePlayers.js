@@ -13,15 +13,8 @@ export class RemotePlayersManager {
 
   addPlayer({ id, nickname, clientId } = {}) {
     if (!id || !this.mapContainer) return;
-    // If this entry represents the local websocket id, skip rendering
-    if (this.ws && this.ws.id === id) return;
-    // If this entry's clientId matches our local stored client id, it's the same browser/tab identity — skip to avoid duplicates
-    try {
-      const localClientId = (typeof localStorage !== 'undefined') ? localStorage.getItem('mp_client_id') : null;
-      if (clientId && localClientId && clientId === localClientId) return;
-    } catch (err) {
-      // ignore storage errors
-    }
+    
+    // Early return for duplicate check - prevent spam
     if (this.players.has(id)) {
       // Player already exists, just update nickname if changed
       const existingPlayer = this.players.get(id);
@@ -29,13 +22,48 @@ export class RemotePlayersManager {
         existingPlayer.nickname = nickname || id;
         existingPlayer.element.title = existingPlayer.nickname;
       }
-      return;
+      // Store clientId for future duplicate detection
+      if (clientId && !existingPlayer.clientId) {
+        existingPlayer.clientId = clientId;
+      }
+      return; // Don't log or process further - this is normal
+    }
+    
+    // If this entry represents the local websocket id, skip rendering
+    if (this.ws && this.ws.id === id) {
+      return; // Skip silently to avoid spam
+    }
+    
+    // If this entry's clientId matches our local stored client id, it's the same browser/tab identity — skip to avoid duplicates
+    try {
+      const localClientId = (typeof localStorage !== 'undefined') ? localStorage.getItem('mp_client_id') : null;
+      if (clientId && localClientId && clientId === localClientId) {
+        return;
+      }
+    } catch (err) {
+      // ignore storage errors
+    }
+    
+    // Remove any existing player with the same clientId (old connection)
+    if (clientId) {
+      for (const [existingId, playerData] of this.players.entries()) {
+        if (existingId !== id && playerData.clientId === clientId) {
+          this.removePlayer(existingId);
+        }
+      }
     }
     
     const el = document.createElement('div');
     el.className = 'player remote-player';
     el.dataset.playerId = id;
     el.title = nickname || id;
+    
+    // Clean up any existing DOM elements with same player ID to prevent duplicates
+    const existingElements = this.mapContainer.querySelectorAll(`[data-player-id="${id}"]`);
+    existingElements.forEach(elem => {
+      elem.remove();
+    });
+    
     // avoid duplicates: if a player with same nickname already exists in DOM, skip adding
     try {
       const existingLabel = this.mapContainer.querySelector('.player .player-name, .player.remote-player .player-name');
@@ -57,8 +85,7 @@ export class RemotePlayersManager {
     // Ensure full, non-cut frame before first update
     el.style.backgroundPosition = '0% 0%';
     this.mapContainer.appendChild(el);
-    this.players.set(id, { element: el, nickname: nickname || id });
-    console.log(`👤 Added remote player: ${nickname || id} (${id})`);
+    this.players.set(id, { element: el, nickname: nickname || id, clientId: clientId });
   }
 
   removePlayer(id) {
@@ -70,8 +97,12 @@ export class RemotePlayersManager {
 
   updatePlayerPosition(id, row, col, x, y) {
     if (this.ws && this.ws.id === id) return; // Don't update local player
+    
     const p = this.players.get(id);
-    if (!p || !p.element) return;
+    if (!p || !p.element) {
+      console.warn(`⚠️ Cannot update position - player ${id} not found in remote players map`);
+      return;
+    }
     
     // Use exact x,y coordinates if provided, otherwise calculate from row/col
     const posX = (x !== undefined) ? x : (col * TILE_SIZE + OFFSET);
@@ -110,6 +141,41 @@ export class RemotePlayersManager {
     } else if (type === 'placeBomb') {
       console.log(`💣 Remote player ${playerId} placed bomb at [${payload.row}, ${payload.col}]`);
       this.renderRemoteBomb(payload.row, payload.col);
+    } else if (type === 'powerupSpawned') {
+      console.log(`🔋 Remote powerup spawned: ${payload.powerupType} at [${payload.row}, ${payload.col}]`);
+      // Add powerup to local state so it displays
+      try {
+        const state = store.getState();
+        const powerups = state.powerups || [];
+        const newPowerup = {
+          id: `powerup-${Date.now()}-${Math.random()}`,
+          type: payload.powerupType,
+          row: payload.row,
+          col: payload.col
+        };
+        store.setState({
+          powerups: [
+            ...powerups,
+            newPowerup
+          ]
+        });
+      } catch (err) {
+        console.error('Error handling remote powerup spawn:', err);
+      }
+    } else if (type === 'powerupCollected') {
+      console.log(`🔋 Remote player collected powerup at [${payload.row}, ${payload.col}]`);
+      // Remove powerup from local state by row/col (same tile)
+      try {
+        const state = store.getState();
+        const powerups = state.powerups || [];
+        const filtered = powerups.filter(p => !(p.row === payload.row && p.col === payload.col));
+        if (filtered.length < powerups.length) {
+          console.log(`✅ Removed powerup at [${payload.row}, ${payload.col}] from local state`);
+          store.setState({ powerups: filtered });
+        }
+      } catch (err) {
+        console.error('Error handling remote powerup collection:', err);
+      }
     } else if (type === 'died') {
       console.log(`☠️ Remote player ${playerId} died`);
       // remove remote player's visual

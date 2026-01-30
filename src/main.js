@@ -12,6 +12,22 @@ let player; // Global reference for player
 let bombPlacer;
 let explosionSystem;
 let timerInterval;
+let gameLoopId;
+let gameRunning = false;
+
+function stopGame(reason = 'ended') {
+    if (!gameRunning) return;
+    gameRunning = false;
+    try { if (gameLoopId) cancelAnimationFrame(gameLoopId); } catch (e) { /* ignore */ }
+    clearInterval(timerInterval);
+    store.setState({ gameState: reason });
+    if (player) {
+        player.keys = {};
+    }
+}
+
+// Expose to other modules (player, remote events)
+window.stopGame = stopGame;
 
 // Initialize map and global game state
 function initializeGame() {
@@ -85,6 +101,7 @@ function startTimer(startedAt = null, durationSeconds = 120) {
 
 // Show a full-screen overlay when time is up
 function showTimeUpOverlay() {
+    stopGame('timeup');
         let overlay = document.querySelector('.timeup-overlay');
         if (!overlay) {
                 overlay = document.createElement('div');
@@ -113,6 +130,7 @@ function onPlayerHit() {
     if (dead) {
         alert('💀 You Lost!');
         player.element.style.opacity = 0.5;
+        stopGame('lost');
     }
 }
 
@@ -148,6 +166,22 @@ function initPlayer() {
         console.warn('Failed to create LivesUI for player', err);
     }
 
+    // Broadcast initial position to other players
+    if (window.mpWS?.ws?.readyState === 1) {
+        window.mpWS.send({
+            type: 'action',
+            payload: {
+                type: 'move',
+                row: player.row,
+                col: player.col,
+                x: player.x,
+                y: player.y,
+                direction: player.direction
+            }
+        });
+        console.log(`📡 Broadcast initial position: row=${player.row}, col=${player.col}, x=${player.x}, y=${player.y}`);
+    }
+
   
 
     bombPlacer = new BombPlacement();
@@ -155,6 +189,7 @@ function initPlayer() {
 
     // Start game loop
     function gameLoop() {
+        if (!gameRunning) return;
         player.update();
 
         // Check for explosions hitting the player
@@ -165,8 +200,9 @@ function initPlayer() {
             }
         });
 
-        requestAnimationFrame(gameLoop);
+        gameLoopId = requestAnimationFrame(gameLoop);
     }
+    gameRunning = true;
     gameLoop();
 }
 
@@ -214,6 +250,7 @@ window.addEventListener('load', () => {
                 onGameStart: (state) => {
                     if (gameStarted) return;
                     gameStarted = true;
+                    gameRunning = true;
                     // Determine this client's playerIndex from the lobby state (server authoritative)
                     try {
                         const players = (state && state.players) ? state.players : [];

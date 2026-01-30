@@ -44,7 +44,21 @@ export class ExplosionSystem {
                 // updates the global store when it creates a powerup.
                 try {
                     const pm = getPowerupManager();
-                    pm.spawnPowerup(tile.row, tile.col);
+                    const powerupSpawned = pm.spawnPowerup(tile.row, tile.col);
+                    
+                    // Broadcast powerup spawn to other players
+                    if (powerupSpawned && window.mpWS?.ws?.readyState === 1) {
+                        window.mpWS.send({
+                            type: 'action',
+                            payload: {
+                                type: 'powerupSpawned',
+                                row: tile.row,
+                                col: tile.col,
+                                powerupType: powerupSpawned.type
+                            }
+                        });
+                        console.log(`📡 Broadcast powerup spawn: ${powerupSpawned.type} at [${tile.row}, ${tile.col}]`);
+                    }
                 } catch (err) {
                     console.error('Error spawning powerup:', err);
                 }

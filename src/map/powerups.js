@@ -20,10 +20,17 @@ export class PowerupManager {
 
   // Called when a block is destroyed - random 30% chance
   spawnPowerup(row, col) {
-    if (Math.random() > 0.3) return; // 30% spawn rate
+    if (Math.random() > 0.3) return null; // 30% spawn rate
 
     const types = Object.keys(this.powerupTypes);
     const randomType = types[Math.floor(Math.random() * types.length)];
+
+    const newPowerup = {
+      id: `powerup-${Date.now()}-${Math.random()}`,
+      type: randomType,
+      row: row,
+      col: col
+    };
 
     const state = store.getState();
     const powerups = state.powerups || [];
@@ -31,14 +38,11 @@ export class PowerupManager {
     store.setState({
       powerups: [
         ...powerups,
-        {
-          id: `powerup-${Date.now()}-${Math.random()}`,
-          type: randomType,
-          row: row,
-          col: col
-        }
+        newPowerup
       ]
     });
+    
+    return newPowerup;
   }
 
   // Called when player collides with power-up
@@ -71,8 +75,8 @@ export class PowerupManager {
       switch (powerup.type) {
         case 'bombs': {
           playerInstance.maxBombs = (playerInstance.maxBombs || 1) + 1;
-          // ensure timer container exists
-          playerInstance._powerupTimers = playerInstance._powerupTimers || { bombs: [], flames: [] };
+          // ensure timer container exists with ALL timer arrays
+          playerInstance._powerupTimers = playerInstance._powerupTimers || { bombs: [], flames: [], speed: [] };
           const timerId = setTimeout(() => {
             // expire one bomb boost
             playerInstance.maxBombs = Math.max(1, (playerInstance.maxBombs || 1) - 1);
@@ -97,7 +101,8 @@ export class PowerupManager {
         }
         case 'flames': {
           playerInstance.bombRange = (playerInstance.bombRange || 1) + 1;
-          playerInstance._powerupTimers = playerInstance._powerupTimers || { bombs: [], flames: [] };
+          // ensure timer container exists with ALL timer arrays
+          playerInstance._powerupTimers = playerInstance._powerupTimers || { bombs: [], flames: [], speed: [] };
           const timerId = setTimeout(() => {
             playerInstance.bombRange = Math.max(1, (playerInstance.bombRange || 1) - 1);
             try {
