@@ -276,7 +276,14 @@ window.addEventListener('load', () => {
             });
 
             ws.connect(nickname);
-            new ChatManager(ws);
+            
+            // Create lobby chat
+            if (lobby.chatContainer) {
+                new ChatManager(ws, lobby.chatContainer);
+            }
+            
+            // Create in-game chat (collapsed by default)
+            new ChatManager(ws, document.getElementById('app'), { collapsed: false });
             const rpm = new RemotePlayersManager({ wsManager: ws, mapContainer });
 
             ws.on('joined', (data) => {

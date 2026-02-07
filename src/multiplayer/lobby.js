@@ -11,6 +11,7 @@ export class LobbyUI {
     this.onGameStart = onGameStart;
     this.lobbyElement = null;
     this.currentState = 'lobby';
+    this.chatContainer = null;
     this.init();
     this.wireEvents();
   }
@@ -41,6 +42,8 @@ export class LobbyUI {
               <button id="lobby-ready" class="lobby-button">READY</button>
             </div>
           </div>
+          
+          <div id="lobby-chat-container" class="lobby-chat-container"></div>
         </div>
       </div>
     `;
@@ -49,6 +52,9 @@ export class LobbyUI {
     // Wire basic button events
     const readyBtn = this.lobbyElement.querySelector('#lobby-ready');
     if (readyBtn) readyBtn.addEventListener('click', () => this._onReady());
+    
+    // Store reference to chat container
+    this.chatContainer = this.lobbyElement.querySelector('#lobby-chat-container');
   }
 
   _onReady() {

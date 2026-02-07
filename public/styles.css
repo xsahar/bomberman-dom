@@ -396,11 +396,68 @@ body {
 .lobby-button { padding:12px 18px; border-radius:8px; border:none; cursor:pointer; background:linear-gradient(180deg,#ffd24d,#ffb300); color:#2b1a00; font-weight:900; box-shadow:0 6px #c13918; font-family: 'Press Start 2P', monospace; }
 .lobby-button.ghost { background:transparent; color:#fff; box-shadow:none; border:2px solid rgba(255,255,255,0.06); }
 
+/* Lobby Chat Container */
+.lobby-chat-container {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 2000;
+}
+
+.lobby-chat-container .chat-container {
+    position: relative;
+    bottom: auto;
+    right: auto;
+    width: 340px;
+    max-height: 300px;
+    background: rgba(20, 24, 32, 0.96);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 4px 32px 0 rgba(0,0,0,0.25), 0 1.5px 6px 0 rgba(44,62,80,0.12);
+    border: 1.5px solid #232b3a;
+}
+
+.lobby-chat-container .chat-header {
+    background: rgba(255,255,255,0.04);
+    border-bottom: 1.5px solid #232b3a;
+}
+
+.lobby-chat-container .chat-title {
+    color: #e0e6f0;
+}
+
+.lobby-chat-container .chat-messages {
+    max-height: 200px;
+}
+
+.lobby-chat-container .chat-input {
+    background: #232b3a;
+    color: #f7f7f7;
+    border: none;
+}
+
+.lobby-chat-container .chat-input:focus {
+    background: #2c3e50;
+}
+
+.lobby-chat-container .chat-send {
+    background: linear-gradient(90deg, #2ecc71 60%, #27ae60 100%);
+    color: #fff;
+    font-weight: 700;
+}
+
+.lobby-chat-container .chat-send:hover {
+    background: linear-gradient(90deg, #27ae60 60%, #2ecc71 100%);
+    box-shadow: 0 2px 8px 0 rgba(46,204,113,0.16);
+}
+
 /* Responsive */
 @media (max-width: 720px) {
     .lobby-players-grid { grid-template-columns: repeat(2, 1fr); }
     .lobby-card { padding:18px; }
     .lobby-logo { font-size: 44px; }
+    .lobby-chat-container { margin-top: 15px; padding-top: 15px; }
+    .lobby-chat-container .chat-messages { max-height: 150px; }
 }
 
 .nickname-form {
