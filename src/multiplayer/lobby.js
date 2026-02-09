@@ -11,6 +11,7 @@ export class LobbyUI {
     this.onGameStart = onGameStart;
     this.lobbyElement = null;
     this.currentState = 'lobby';
+    this._presence = null;
     this.chatContainer = null;
     this.init();
     this.wireEvents();
@@ -50,6 +51,9 @@ export class LobbyUI {
     
     // Store reference to chat container
     this.chatContainer = this.lobbyElement.querySelector('#lobby-chat-container');
+
+    // Mark this client as being in the lobby
+    this.setPresence(true);
   }
 
   // _onReady removed: lobby no longer exposes a ready button
@@ -63,10 +67,18 @@ export class LobbyUI {
     this.ws.on('lobbyState', (state) => this.updateLobby(state));
   }
 
+  setPresence(inLobby) {
+    if (!this.ws || typeof this.ws.send !== 'function') return;
+    if (this._presence === inLobby) return;
+    this._presence = inLobby;
+    this.ws.send({ type: 'presence', payload: { inLobby: !!inLobby } });
+  }
+
   updateLobby(state) {
     if (!state) return;
     
     const { players = [], gameState = {} } = state;
+    const visiblePlayers = players.filter(p => p && p.inLobby !== false);
     const playerListEl = document.getElementById('lobby-players');
     const messageEl = document.getElementById('lobby-message');
     const countdownEl = document.getElementById('lobby-countdown');
@@ -76,7 +88,7 @@ export class LobbyUI {
       const slots = playerListEl.querySelectorAll('.lobby-slot');
       for (let i = 0; i < slots.length; i++) {
         const slotEl = slots[i];
-        const p = players[i];
+        const p = visiblePlayers[i];
         if (p) {
           // show numbered slot and player name
           const num = i + 1;
@@ -95,7 +107,7 @@ export class LobbyUI {
     }
 
     // Update status message
-    const count = players.length;
+    const count = visiblePlayers.length;
     if (gameState.state === 'lobby') {
       this.currentState = 'lobby';
       if (messageEl) messageEl.textContent = `Waiting for players... (${count}/4)`;
@@ -110,6 +122,7 @@ export class LobbyUI {
       if (countdownEl) countdownEl.textContent = gameState.countdown || '10';
     } else if (gameState.state === 'playing') {
       this.currentState = 'playing';
+      this.setPresence(false);
       this.hide();
       if (this.onGameStart) this.onGameStart(state);
     }
@@ -125,6 +138,7 @@ export class LobbyUI {
     if (this.lobbyElement) {
       this.lobbyElement.style.display = 'flex';
     }
+    this.setPresence(true);
   }
 
   destroy() {

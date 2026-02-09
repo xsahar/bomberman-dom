@@ -63,12 +63,13 @@ function getPlayersForBroadcast(lobby) {
   const seen = new Set();
   const out = [];
   Array.from(lobby.players.values()).forEach(p => {
+    if (p && p.inLobby === false) return;
     const key = p.clientId || p.id;
     if (seen.has(key)) return;
     seen.add(key);
-    out.push({ id: p.id, nickname: p.nickname, clientId: p.clientId });
+    out.push({ id: p.id, nickname: p.nickname, clientId: p.clientId, inLobby: true });
   });
-  return out.map((p, idx) => ({ id: p.id, nickname: p.nickname, clientId: p.clientId, playerIndex: Math.min(idx, 3) }));
+  return out.map((p, idx) => ({ id: p.id, nickname: p.nickname, clientId: p.clientId, inLobby: p.inLobby, playerIndex: Math.min(idx, 3) }));
 }
 
 // Helper: broadcast to players in the same lobby
@@ -136,7 +137,7 @@ function startGameForLobby(lobbyName) {
 function evaluateLobbyStart(lobbyName) {
   const lobby = lobbies.get(lobbyName);
   if (!lobby) return;
-  const count = lobby.players.size;
+  const count = Array.from(lobby.players.values()).filter(p => p && p.inLobby !== false).length;
   if (count >= lobby.maxPlayers) {
     // start countdown immediately
     startLobbyCountdown(lobbyName);
@@ -228,11 +229,11 @@ wss.on('connection', (ws, req) => {
         ws.nickname = existing.nickname || requested;
         // remove old entry and replace with this ws (keep single entry per clientId/ip)
         lobby.players.delete(existing.id);
-        lobby.players.set(ws.id, { id: ws.id, nickname: ws.nickname, ws, clientId, ip });
+        lobby.players.set(ws.id, { id: ws.id, nickname: ws.nickname, ws, clientId, ip, inLobby: true });
       } else {
         // enforce uniqueness across different clients
         ws.nickname = generateUniqueNickname(lobby, requested).slice(0, 32);
-        lobby.players.set(ws.id, { id: ws.id, nickname: ws.nickname, ws, clientId, ip });
+        lobby.players.set(ws.id, { id: ws.id, nickname: ws.nickname, ws, clientId, ip, inLobby: true });
       }
       
       // Assign player index based on join order (0-3 for up to 4 players)
@@ -255,6 +256,17 @@ wss.on('connection', (ws, req) => {
       broadcastToLobby(ws.lobby, { type: 'lobbyState', payload: { players: getPlayersForBroadcast(lobby), gameState: lobby.gameState } });
       // evaluate lobby start logic
       evaluateLobbyStart(ws.lobby);
+      return;
+    }
+
+    // Lobby presence (client reports whether they are on the lobby screen)
+    if (msg.type === 'presence' && msg.payload && typeof msg.payload.inLobby === 'boolean') {
+      const meta = lobby.players.get(ws.id);
+      if (meta) {
+        meta.inLobby = msg.payload.inLobby;
+        broadcastToLobby(ws.lobby, { type: 'lobbyState', payload: { players: getPlayersForBroadcast(lobby), gameState: lobby.gameState } });
+        evaluateLobbyStart(ws.lobby);
+      }
       return;
     }
 

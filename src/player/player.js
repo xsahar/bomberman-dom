@@ -320,6 +320,11 @@ export class Player {
             overlay.querySelector('div').textContent = msg;
         }
         overlay.classList.add('active');
+        try {
+            if (window.mpWS && typeof window.mpWS.send === 'function') {
+                window.mpWS.send({ type: 'presence', payload: { inLobby: false } });
+            }
+        } catch (e) { /* ignore */ }
         try { if (window.stopGame) window.stopGame('ended'); } catch (e) { /* ignore */ }
     }
 

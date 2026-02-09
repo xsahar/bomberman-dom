@@ -16,6 +16,11 @@ let gameLoopId;
 let gameRunning = false;
 
 function stopGame(reason = 'ended') {
+    try {
+        if (window.mpWS && typeof window.mpWS.send === 'function') {
+            window.mpWS.send({ type: 'presence', payload: { inLobby: false } });
+        }
+    } catch (e) { /* ignore */ }
     if (!gameRunning) return;
     gameRunning = false;
     try { if (gameLoopId) cancelAnimationFrame(gameLoopId); } catch (e) { /* ignore */ }
@@ -192,14 +197,6 @@ function initPlayer() {
         if (!gameRunning) return;
         player.update();
 
-        // Check for explosions hitting the player
-        const explosions = store.getState().explosions || [];
-        explosions.forEach(explosion => {
-            if (player.isInExplosion(explosion)) {
-                onPlayerHit();
-            }
-        });
-
         gameLoopId = requestAnimationFrame(gameLoop);
     }
     gameRunning = true;
@@ -277,9 +274,9 @@ window.addEventListener('load', () => {
 
             ws.connect(nickname);
             
-            // Create lobby chat
+            // Create lobby chat (collapsed by default)
             if (lobby.chatContainer) {
-                new ChatManager(ws, lobby.chatContainer);
+                new ChatManager(ws, lobby.chatContainer, { collapsed: true });
             }
             
             // Create in-game chat (collapsed by default)
@@ -472,11 +469,6 @@ window.addEventListener('load', () => {
                                 timestamp: Date.now()
                             }
                         });
-                    }
-
-                    // If local player stands on any affected tile, register hit
-                    if (Array.isArray(affectedTiles) && affectedTiles.some(t => player.row === t.row && player.col === t.col)) {
-                        onPlayerHit();
                     }
                 }, bombPlacer.BOMB_TIMER);
             }

@@ -9,6 +9,7 @@ export class RemotePlayersManager {
     this.ws = wsManager;
     this.mapContainer = mapContainer;
     this.players = new Map(); // id => { element, nickname }
+    this._localWinShown = false;
   }
 
   addPlayer({ id, nickname, clientId } = {}) {
@@ -93,6 +94,30 @@ export class RemotePlayersManager {
     if (!p) return;
     if (p.element && p.element.parentNode) p.element.remove();
     this.players.delete(id);
+    console.log(`🚪 Player ${id} removed. Remaining players:`, this.players.size);
+    this._checkLocalWinOnSolo();
+  }
+
+  _checkLocalWinOnSolo() {
+    if (this._localWinShown) return;
+    console.log('🔍 Checking win condition - players remaining:', this.players.size);
+    try {
+      // Only trigger win if there's an active local player who is alive
+      if (!window.player || window.player.dead) {
+        console.log('❌ No win - player not found or dead');
+        return;
+      }
+      // Check if there are no remote players left
+      if (this.players.size === 0) {
+        console.log('✅ All remote players left - showing win!');
+        if (typeof window.player.showEndGameMessage === 'function') {
+          this._localWinShown = true;
+          window.player.showEndGameMessage('🎉 You Won!');
+        }
+      }
+    } catch (err) {
+      console.error('Error in win check:', err);
+    }
   }
 
   updatePlayerPosition(id, row, col, x, y) {
