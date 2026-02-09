@@ -426,9 +426,16 @@ window.addEventListener('load', () => {
     // Keyboard input for bombs
     window.addEventListener('keydown', (e) => {
         if (!player) return;
+        if (!gameRunning) return;
         if (e.code === 'Space' || e.key === ' ') {
             e.preventDefault();
-            const mapData = store.getState().map.data;
+            // Additional safeguard: check game state to prevent bomb placement when game is over
+            const state = store.getState();
+            if (state.gameState === 'timeup' || state.gameState === 'lost' || state.gameState === 'ended') {
+                console.log("🚫 Game is over! Bomb placement blocked.");
+                return;
+            }
+            const mapData = state.map.data;
             const newBomb = bombPlacer.placeBomb(player, mapData);
             if (newBomb) {
                 // Sync bomb placement with other players

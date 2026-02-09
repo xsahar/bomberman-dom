@@ -5,6 +5,8 @@
 // - Bomb collision detection
 // - Methods: placeBomb(), updateBombs(), canPlaceBomb(), removeBomb(), renderBombs()
 
+import { store } from '../../framework/index.js';
+
 export class BombPlacement {
     constructor() {
         this.BOMB_TIMER = 3000; // 3 Seconds standard fuse
@@ -18,6 +20,14 @@ export class BombPlacement {
      * @returns {Object|null} - Returns the new bomb if successful, or null if failed.
      */
     placeBomb(player, mapData) {
+        // 0. GAME STATE CHECK - Prevent bomb placement when game is over
+        const state = store.getState();
+        const gameState = state.gameState;
+        if (gameState === 'timeup' || gameState === 'lost' || gameState === 'ended') {
+            console.log("🚫 Game is over! Cannot place bombs.");
+            return null;
+        }
+
         // 1. AMMO CHECK (The "Slots" Logic)
         // Count how many bombs this specific player currently has on the board.
         const playerActiveBombs = this.activeBombs.filter(b => b.ownerId === player.id).length;
