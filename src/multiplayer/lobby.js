@@ -38,9 +38,6 @@ export class LobbyUI {
               <div id="lobby-message">Waiting for players...</div>
               <div id="lobby-countdown" class="lobby-countdown"></div>
             </div>
-            <div class="lobby-actions">
-              <button id="lobby-ready" class="lobby-button">READY</button>
-            </div>
           </div>
           
           <div id="lobby-chat-container" class="lobby-chat-container"></div>
@@ -49,21 +46,13 @@ export class LobbyUI {
     `;
     document.body.appendChild(this.lobbyElement);
 
-    // Wire basic button events
-    const readyBtn = this.lobbyElement.querySelector('#lobby-ready');
-    if (readyBtn) readyBtn.addEventListener('click', () => this._onReady());
+    // No READY button present; no button events to wire
     
     // Store reference to chat container
     this.chatContainer = this.lobbyElement.querySelector('#lobby-chat-container');
   }
 
-  _onReady() {
-    try {
-      if (this.ws && typeof this.ws.send === 'function') {
-        this.ws.send({ type: 'action', payload: { type: 'ready' } });
-      }
-    } catch (e) { /* ignore */ }
-  }
+  // _onReady removed: lobby no longer exposes a ready button
 
   _onLeave() {
     try { if (this.ws && this.ws.disconnect) this.ws.disconnect(); } catch (e) {}
