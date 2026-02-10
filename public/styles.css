@@ -271,33 +271,40 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: radial-gradient(circle at 50% 30%, #111 0%, #000 40%);
+    background: rgba(0, 0, 0, 0.85);
     z-index: 2000;
     color: #fff;
     flex-direction: column;
+    animation: fadeInOverlay 0.3s ease-in-out;
 }
 .title-card {
-    width: 840px;
+    width: 640px;
     max-width: calc(100% - 48px);
-    background: transparent;
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    border-radius: 20px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+    border: 3px solid #00d4ff;
+    padding: 40px 35px;
     text-align: center;
+    animation: slideInModal 0.4s ease-out;
 }
 .title-logo {
     font-family: 'Press Start 2P', monospace;
     font-weight: 900;
-    font-size: 92px;
-    color: #ffd24d; /* yellow */
-    letter-spacing: 6px;
-    text-shadow: 0 8px #c13918, 0 10px 0 rgba(0,0,0,0.6);
+    font-size: 72px;
+    color: #00d4ff;
+    letter-spacing: 4px;
+    text-shadow: 0 4px 12px rgba(0, 212, 255, 0.4);
     line-height: 0.9;
     margin: 0 0 18px 0;
 }
 .title-sub {
     font-family: 'Press Start 2P', monospace;
-    color: #fff;
-    font-size: 14px;
-    opacity: 0.9;
-    margin-bottom: 24px;
+    color: #e0f2fe;
+    font-size: 12px;
+    opacity: 0.95;
+    margin-bottom: 28px;
+    letter-spacing: 1px;
 }
 .title-controls {
     display: flex;
@@ -306,33 +313,48 @@ body {
     gap: 12px;
 }
 .nickname-input {
-    padding: 12px 16px;
-    font-size: 16px;
-    border-radius: 6px;
-    border: 2px solid rgba(255,255,255,0.12);
-    background: rgba(255,255,255,0.04);
+    padding: 14px 18px;
+    font-size: 15px;
+    border-radius: 8px;
+    border: 2px solid rgba(0, 212, 255, 0.3);
+    background: rgba(255,255,255,0.08);
     color: #fff;
     outline: none;
-    width: 260px;
-    box-shadow: 0 4px 18px rgba(0,0,0,0.6) inset;
+    width: 280px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) inset, 0 0 20px rgba(0, 212, 255, 0.1);
+    font-family: 'Press Start 2P', monospace;
+    transition: all 0.3s ease;
 }
-.nickname-input::placeholder { color: rgba(255,255,255,0.5); }
+.nickname-input::placeholder { color: rgba(255,255,255,0.4); }
+.nickname-input:focus {
+    border-color: #00d4ff;
+    background: rgba(255,255,255,0.12);
+    box-shadow: 0 0 20px rgba(0, 212, 255, 0.3), 0 4px 12px rgba(0, 0, 0, 0.4) inset;
+}
 .title-button {
-    padding: 12px 18px;
-    font-size: 16px;
-    border-radius: 6px;
+    padding: 14px 24px;
+    font-size: 14px;
+    border-radius: 8px;
     border: none;
     cursor: pointer;
-    background: linear-gradient(180deg,#ffd24d 0%,#ffb300 100%);
-    color: #2b1a00;
-    font-weight: 800;
-    box-shadow: 0 6px #c13918;
+    background: linear-gradient(180deg, #00d4ff 0%, #0099cc 100%);
+    color: #1e3c72;
+    font-weight: 900;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
     font-family: 'Press Start 2P', monospace;
+    transition: all 0.2s ease;
+}
+.title-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 212, 255, 0.3);
+}
+.title-button:active {
+    transform: translateY(0);
 }
 .title-small {
     margin-top: 18px;
-    color: rgba(255,255,255,0.7);
-    font-size: 13px;
+    color: rgba(224, 242, 254, 0.7);
+    font-size: 11px;
 }
 
 /* Retro overlay fade-in */
@@ -362,12 +384,12 @@ body {
 .lobby-logo {
     font-family: 'Press Start 2P', monospace;
     font-size: 68px;
-    color: #ffd24d;
+    color: #ece9e0;
     text-shadow: 0 8px #c13918, 0 12px 24px rgba(0,0,0,0.6);
     margin-bottom: 8px;
 }
 .lobby-sub { color: rgba(255,255,255,0.75); margin-bottom: 18px; font-family: 'Press Start 2P', monospace; }
-.lobby-player-you { color: #ffd24d; font-weight: 700; text-shadow: none; }
+.lobby-player-you { color: #60a5fa; font-weight: 700; text-shadow: none; }
 .lobby-players-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -375,23 +397,27 @@ body {
     margin: 12px 0 18px 0;
 }
 .lobby-slot {
-    background: rgba(255,255,255,0.04);
-        background-image: radial-gradient(circle at 50% 30%, rgba(255,215,77,0.06), rgba(0,0,0,0.45)), linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    border-radius: 8px;
-    min-height: 56px;
+    background: linear-gradient(135deg, rgba(102,126,234,0.10), rgba(118,75,162,0.06));
+    border-radius: 12px;
+    min-height: 64px;
     display: flex;
     align-items: center;
-    justify-content: flex-start;
-    gap: 8px;
-    font-weight: 700;
+    gap: 12px;
+    padding: 10px 12px;
+    font-weight: 800;
     color: #fff;
-    border: 2px solid rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.35);
+    transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
 }
-.lobby-slot-num { color: #ffd24d; font-weight: 900; margin-right: 6px; }
-.lobby-player-name { color: #fff; }
+.lobby-slot-num { color: #fff; font-weight: 900; margin-right: 6px; }
+.lobby-slot-avatar { width:40px; height:40px; border-radius:50%; background:linear-gradient(180deg,#ffd24d,#ffb300); display:inline-flex; align-items:center; justify-content:center; color:#2b1a00; font-weight:900; font-family: 'Press Start 2P', monospace; margin-right:8px; }
+.lobby-slot-info { display:flex; flex-direction:column; }
+.lobby-player-name { color: #fff; font-size: 15px; }
+.lobby-slot.empty { background: rgba(255,255,255,0.02); border: 1px dashed rgba(255,255,255,0.04); color: rgba(255,255,255,0.6); min-height:56px; justify-content:center; display:flex; align-items:center; }
 .lobby-controls { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:8px; }
 .lobby-status { flex:1; text-align:left; }
-.lobby-countdown { font-weight:900; font-size:26px; color:#ffb300; }
+.lobby-countdown { font-weight:900; font-size:26px; color:#ececeb; }
 .lobby-actions { display:flex; gap:10px; }
 .lobby-button { padding:12px 18px; border-radius:8px; border:none; cursor:pointer; background:linear-gradient(180deg,#ffd24d,#ffb300); color:#2b1a00; font-weight:900; box-shadow:0 6px #c13918; font-family: 'Press Start 2P', monospace; }
 .lobby-button.ghost { background:transparent; color:#fff; box-shadow:none; border:2px solid rgba(255,255,255,0.06); }

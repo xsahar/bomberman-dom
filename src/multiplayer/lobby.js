@@ -18,37 +18,39 @@ export class LobbyUI {
   }
 
   init() {
-    // Create lobby overlay
+    // Create lobby using instructions-modal markup so styles match
     this.lobbyElement = document.createElement('div');
     this.lobbyElement.id = 'lobby-overlay';
+    this.lobbyElement.className = 'instructions-overlay';
     this.lobbyElement.innerHTML = `
-      <div class="lobby-overlay-inner">
-        <div class="lobby-card">
-          <div class="lobby-logo">BOMBERMAN</div>
-          <div class="lobby-sub">READY UP & WAIT FOR OTHERS</div>
-
-          <div class="lobby-players-grid" id="lobby-players">
-            <div class="lobby-slot" data-slot="0">Empty</div>
-            <div class="lobby-slot" data-slot="1">Empty</div>
-            <div class="lobby-slot" data-slot="2">Empty</div>
-            <div class="lobby-slot" data-slot="3">Empty</div>
-          </div>
-
-          <div class="lobby-controls">
-            <div class="lobby-status">
-              <div id="lobby-message">Waiting for players...</div>
-              <div id="lobby-countdown" class="lobby-countdown"></div>
+      <div class="instructions-modal">
+        <div class="instructions-header">
+          <h1>BOMBERMAN</h1>
+        </div>
+        <div class="instructions-content">
+          <div class="player-list">
+            <h3>Players</h3>
+            <div id="lobby-players" class="lobby-players-grid">
+              <div class="lobby-slot" data-slot="0">Empty</div>
+              <div class="lobby-slot" data-slot="1">Empty</div>
+              <div class="lobby-slot" data-slot="2">Empty</div>
+              <div class="lobby-slot" data-slot="3">Empty</div>
             </div>
           </div>
-          
+
+          <div class="lobby-status">
+            <div id="lobby-message">Waiting for players...</div>
+            <div id="lobby-countdown" class="lobby-countdown"></div>
+          </div>
+
           <div id="lobby-chat-container" class="lobby-chat-container"></div>
+        </div>
+        <div class="instructions-footer">
         </div>
       </div>
     `;
     document.body.appendChild(this.lobbyElement);
 
-    // No READY button present; no button events to wire
-    
     // Store reference to chat container
     this.chatContainer = this.lobbyElement.querySelector('#lobby-chat-container');
 
@@ -98,10 +100,13 @@ export class LobbyUI {
             slotEl.innerHTML = `<span class="lobby-slot-num">${num}.</span> <span class="lobby-player-name">${escapeHtml(p.nickname)}</span>`;
           }
           slotEl.style.display = '';
+          slotEl.classList.add('occupied');
+          slotEl.classList.remove('empty');
         } else {
           // hide empty slots
           slotEl.style.display = 'none';
-          slotEl.innerHTML = '';
+          slotEl.classList.remove('occupied');
+          slotEl.classList.add('empty');
         }
       }
     }
@@ -130,13 +135,18 @@ export class LobbyUI {
 
   hide() {
     if (this.lobbyElement) {
-      this.lobbyElement.style.display = 'none';
+      // use fade-out class to match instructions modal
+      this.lobbyElement.classList.add('fade-out');
+      setTimeout(() => {
+        try { this.lobbyElement.style.display = 'none'; } catch (e) {}
+      }, 300);
     }
   }
 
   show() {
     if (this.lobbyElement) {
-      this.lobbyElement.style.display = 'flex';
+      this.lobbyElement.style.display = '';
+      this.lobbyElement.classList.remove('fade-out');
     }
     this.setPresence(true);
   }
