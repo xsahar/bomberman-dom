@@ -77,6 +77,9 @@ export class WebSocketManager {
         case 'mapSync':
           this._dispatch('mapSync', data.payload);
           break;
+        case 'pause':
+          this._dispatch('pause', data.payload);
+          break;
         default:
           this._dispatch('message', data);
       }

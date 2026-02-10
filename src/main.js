@@ -7,6 +7,9 @@ import { BombPlacement } from './bombs/bombPlacement.js';
 import { ExplosionSystem } from './bombs/explosion.js';
 import { resetRound } from './game/gameFlow.js';
 import { LivesUI } from './player/lives.js';
+import { PauseMenu } from './ui/pauseMenu.js';
+import { GameInstructions } from './ui/instructions.js';
+import { GameUI } from './ui/gameUI.js';
 
 let player; // Global reference for player
 let bombPlacer;
@@ -14,6 +17,8 @@ let explosionSystem;
 let timerInterval;
 let gameLoopId;
 let gameRunning = false;
+let gamePaused = false;
+let pauseMenu;
 
 function stopGame(reason = 'ended') {
     try {
@@ -78,6 +83,9 @@ function startTimer(startedAt = null, durationSeconds = 120) {
     clearInterval(timerInterval);
 
     function tick() {
+        // Skip timer tick if game is paused
+        if (gamePaused) return;
+
         let remaining = durationSeconds;
         if (startedAt) {
             const elapsed = Math.floor((Date.now() - startedAt) / 1000);
@@ -107,22 +115,30 @@ function startTimer(startedAt = null, durationSeconds = 120) {
 // Show a full-screen overlay when time is up
 function showTimeUpOverlay() {
     stopGame('timeup');
-        let overlay = document.querySelector('.timeup-overlay');
-        if (!overlay) {
-                overlay = document.createElement('div');
-                overlay.className = 'timeup-overlay';
-                overlay.innerHTML = `
-                    <div class="timeup-card">
-                        <div class="timeup-emoji">⏱️</div>
-                        <div class="timeup-title">Time is up!</div>
-                        <div class="timeup-sub">The round has ended.</div>
-                        <div class="timeup-actions"><button id="timeup-restart">Restart</button></div>
-                    </div>`;
-                document.body.appendChild(overlay);
-                const btn = overlay.querySelector('#timeup-restart');
-                if (btn) btn.addEventListener('click', () => location.reload());
+    try {
+        if (window.gameUI && typeof window.gameUI.showEndGame === 'function') {
+            window.gameUI.showEndGame('timeup', 'Time is up!', 'The round has ended.');
+            return;
         }
-        overlay.classList.add('active');
+    } catch (e) { /* ignore */ }
+
+    // legacy fallback
+    let overlay = document.querySelector('.timeup-overlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.className = 'timeup-overlay';
+        overlay.innerHTML = `
+            <div class="timeup-card">
+                <div class="timeup-emoji">⏱️</div>
+                <div class="timeup-title">Time is up!</div>
+                <div class="timeup-sub">The round has ended.</div>
+                <div class="timeup-actions"><button id="timeup-restart">Restart</button></div>
+            </div>`;
+        document.body.appendChild(overlay);
+        const btn = overlay.querySelector('#timeup-restart');
+        if (btn) btn.addEventListener('click', () => location.reload());
+    }
+    overlay.classList.add('active');
 }
 
 // Handle player hit and lose lives
@@ -195,7 +211,10 @@ function initPlayer() {
     // Start game loop
     function gameLoop() {
         if (!gameRunning) return;
-        player.update();
+        // Skip game update if game is paused
+        if (!gamePaused) {
+            player.update();
+        }
 
         gameLoopId = requestAnimationFrame(gameLoop);
     }
@@ -203,7 +222,7 @@ function initPlayer() {
     gameLoop();
 }
 
-window.addEventListener('load', () => {
+window.addEventListener('load', async () => {
     console.log('✅ Page loaded');
     const container = document.getElementById('app');
     if (!container) {
@@ -216,6 +235,12 @@ window.addEventListener('load', () => {
     const app = createApp(RootComponent, container);
     app.connectToStore(store);
     app.render();
+    // Centralized Game UI for end-game overlays
+    try { window.gameUI = new GameUI(); } catch (e) { console.warn('GameUI init failed', e); }
+    
+    // Show instructions modal before game starts
+    const instructions = new GameInstructions();
+    await instructions.show();
     
     // Expose app globally for re-rendering after remote map updates
     window.app = app;
@@ -265,6 +290,24 @@ window.addEventListener('load', () => {
 
                     // Now spawn the player at the correct corner
                     initPlayer();
+
+                    // Initialize Pause Menu after player is spawned
+                    pauseMenu = new PauseMenu({
+                        wsManager: ws,
+                        onResume: () => {
+                            gamePaused = false;
+                            // Game loop continues automatically
+                        },
+                        onRestart: () => {
+                            location.reload();
+                        },
+                        onExit: () => {
+                            // Return to lobby
+                            stopGame('lobby');
+                            location.reload();
+                        }
+                    });
+                    window.pauseMenu = pauseMenu;
 
                     const startedAt = state && state.gameState && state.gameState.startedAt ? state.gameState.startedAt : null;
                     const duration = store.getState().gameTime || 120;
@@ -320,6 +363,20 @@ window.addEventListener('load', () => {
             ws.on('playerLeft', p => p && rpm.removePlayer(p.id));
             ws.on('action', a => rpm.handleAction(a));
             ws.on('stateSync', s => rpm.syncState(s));
+            
+            // Handle pause messages from other players
+            ws.on('pause', (payload) => {
+                if (!pauseMenu) return;
+                
+                if (payload && payload.action === 'pause') {
+                    gamePaused = true;
+                    pauseMenu.remotePause();
+                } else if (payload && payload.action === 'resume') {
+                    gamePaused = false;
+                    pauseMenu.remoteResume();
+                }
+            });
+            
             ws.on('lobbyState', s => {
                 if (s && s.players) {
                     const generator = new MapGenerator();
@@ -427,6 +484,8 @@ window.addEventListener('load', () => {
     window.addEventListener('keydown', (e) => {
         if (!player) return;
         if (!gameRunning) return;
+        // Prevent actions if game is paused
+        if (gamePaused) return;
         if (e.code === 'Space' || e.key === ' ') {
             e.preventDefault();
             // Additional safeguard: check game state to prevent bomb placement when game is over

@@ -281,6 +281,13 @@ wss.on('connection', (ws, req) => {
       return;
     }
 
+    // Pause messages (broadcast pause/resume to all players)
+    if (msg.type === 'pause' && msg.payload) {
+      const payload = Object.assign({}, msg.payload, { playerId: ws.id });
+      broadcastToLobby(ws.lobby, { type: 'pause', payload });
+      return;
+    }
+
     // Player actions (movement, bombs, etc.)
     if (msg.type === 'action' && msg.payload) {
       // attach sender id and broadcast

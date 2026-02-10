@@ -976,6 +976,23 @@ body {
     font-weight:700;
 }
 
+.endgame-card {
+    background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+    padding: 28px 36px;
+    border-radius: 12px;
+    text-align: center;
+    max-width: 520px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.6);
+}
+.endgame-emoji { font-size: 64px; margin-bottom: 8px; }
+.endgame-title { font-size: 36px; font-weight: 800; margin-bottom: 6px; }
+.endgame-sub { opacity: 0.9; margin-bottom: 12px; }
+.endgame-stats { color: #ddd; margin-bottom: 12px; }
+.endgame-actions { display:flex; gap:12px; justify-content:center; }
+.endgame-actions .eg-btn { padding:10px 18px; border-radius:10px; border:none; font-weight:800; cursor:pointer; }
+.endgame-actions .eg-restart { background: linear-gradient(90deg,#ffd24d,#ffb84d); }
+.endgame-actions .eg-lobby { background: linear-gradient(90deg,#6fa8ff,#4a80ff); color:#fff; }
+
 /* Time-up overlay */
 .timeup-overlay {
     position: fixed;
@@ -991,4 +1008,386 @@ body {
 .timeup-title { font-size:36px; font-weight:800; margin-bottom:6px; }
 .timeup-sub { opacity:0.85; margin-bottom:12px; }
 .timeup-actions button { padding:10px 20px; border-radius:8px; border:none; background:#ffd24d; font-weight:800; cursor:pointer; }
+
+/* Pause Menu Overlay */
+.pause-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+.pause-overlay.active {
+    opacity: 1;
+    pointer-events: all;
+}
+
+.pause-menu-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+}
+
+.pause-menu {
+    background: linear-gradient(135deg, #8B4FC8 0%, #5E3FA5 100%);
+    border: 5px solid #3AC9D2;
+    border-radius: 20px;
+    padding: 40px;
+    text-align: center;
+    box-shadow: 0 0 30px rgba(58, 201, 210, 0.5);
+    min-width: 280px;
+}
+
+.pause-header {
+    font-size: 48px;
+    font-weight: 900;
+    color: #FFD700;
+    margin-bottom: 30px;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+    letter-spacing: 2px;
+    font-family: 'Press Start 2P', monospace;
+}
+
+.pause-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.pause-btn {
+    padding: 16px 24px;
+    font-size: 18px;
+    font-weight: 700;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.2s ease;
+    font-family: 'Press Start 2P', monospace;
+    letter-spacing: 1px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.pause-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
+}
+
+.pause-btn:active {
+    transform: scale(0.98);
+}
+
+.resume-btn {
+    background: linear-gradient(90deg, #2ecc71 0%, #27ae60 100%);
+    color: white;
+}
+
+.resume-btn:hover {
+    background: linear-gradient(90deg, #36e07d 0%, #2fbf6d 100%);
+}
+
+.restart-btn {
+    background: linear-gradient(90deg, #f39c12 0%, #e67e22 100%);
+    color: white;
+}
+
+.restart-btn:hover {
+    background: linear-gradient(90deg, #f5ad3c 0%, #ed8936 100%);
+}
+
+.exit-btn {
+    background: linear-gradient(90deg, #e74c3c 0%, #c0392b 100%);
+    color: white;
+}
+
+.exit-btn:hover {
+    background: linear-gradient(90deg, #ec7063 0%, #d35400 100%);
+}
+
+/* Game Instructions Modal */
+.instructions-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    animation: fadeInOverlay 0.3s ease-in-out;
+}
+
+.instructions-overlay.fade-out {
+    animation: fadeOutOverlay 0.3s ease-in-out;
+}
+
+@keyframes fadeInOverlay {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes fadeOutOverlay {
+    from {
+        opacity: 1;
+    }
+    to {
+        opacity: 0;
+    }
+}
+
+.instructions-modal {
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    border-radius: 20px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+    max-width: 850px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+    border: 3px solid #00d4ff;
+    display: flex;
+    flex-direction: column;
+    animation: slideInModal 0.4s ease-out;
+}
+
+@keyframes slideInModal {
+    from {
+        transform: translateY(-50px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.instructions-header {
+    background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
+    padding: 24px;
+    border-radius: 17px 17px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 3px solid #00a3e0;
+}
+
+.instructions-header h1 {
+    margin: 0;
+    color: #1e3c72;
+    font-size: 28px;
+    font-weight: 900;
+    font-family: 'Press Start 2P', monospace;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    font-size: 32px;
+    color: #1e3c72;
+    cursor: pointer;
+    padding: 0;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s ease;
+    font-weight: bold;
+}
+
+.close-btn:hover {
+    transform: scale(1.15);
+}
+
+.instructions-content {
+    padding: 32px;
+    color: #ffffff;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.instruction-section {
+    margin-bottom: 24px;
+}
+
+.instruction-section h2 {
+    font-size: 18px;
+    font-family: 'Press Start 2P', monospace;
+    margin: 0 0 16px 0;
+    color: #00d4ff;
+    text-transform: uppercase;
+    border-bottom: 2px solid #00d4ff;
+    padding-bottom: 8px;
+}
+
+.instruction-section p {
+    margin: 0 0 12px 0;
+    font-size: 14px;
+    line-height: 1.6;
+    color: #e0e0e0;
+}
+
+.controls-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+}
+
+.control-item {
+    background: rgba(0, 212, 255, 0.1);
+    border: 1px solid #00d4ff;
+    border-radius: 8px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transition: all 0.2s ease;
+}
+
+.control-item:hover {
+    background: rgba(0, 212, 255, 0.2);
+    box-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+}
+
+.control-key {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 12px;
+    color: #00ff88;
+    font-weight: 900;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+}
+
+.control-desc {
+    font-size: 12px;
+    color: #b0b0b0;
+    text-align: center;
+}
+
+.mechanics-list,
+.rules-list,
+.tips-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.mechanics-list li,
+.rules-list li,
+.tips-list li {
+    margin-bottom: 12px;
+    padding-left: 24px;
+    position: relative;
+    font-size: 13px;
+    line-height: 1.6;
+    color: #e0e0e0;
+}
+
+.mechanics-list li:before,
+.rules-list li:before,
+.tips-list li:before {
+    content: "▸";
+    position: absolute;
+    left: 0;
+    color: #00d4ff;
+    font-size: 16px;
+}
+
+.mechanics-list ul {
+    list-style: none;
+    padding-left: 16px;
+    margin-top: 8px;
+}
+
+.mechanics-list ul li {
+    padding-left: 20px;
+    font-size: 12px;
+    margin-bottom: 6px;
+    color: #c0c0c0;
+}
+
+.mechanics-list ul li:before {
+    content: "→";
+    left: -4px;
+    font-size: 12px;
+    color: #00ff88;
+}
+
+.instructions-footer {
+    padding: 24px 32px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 0 0 17px 17px;
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    border-top: 2px solid rgba(0, 212, 255, 0.3);
+}
+
+.start-btn,
+.instructions-secondary-btn {
+    padding: 14px 32px;
+    font-size: 14px;
+    font-family: 'Press Start 2P', monospace;
+    font-weight: 900;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.2s ease;
+    letter-spacing: 1px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.start-btn.primary {
+    background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
+    color: #1e3c72;
+}
+
+.start-btn.primary:hover {
+    background: linear-gradient(135deg, #00e6ff 0%, #00aadd 100%);
+    box-shadow: 0 6px 16px rgba(0, 212, 255, 0.6);
+    transform: translateY(-2px);
+}
+
+.start-btn.primary:active {
+    transform: translateY(0);
+}
+
+/* Scrollbar styling for instructions modal */
+.instructions-content::-webkit-scrollbar {
+    width: 8px;
+}
+
+.instructions-content::-webkit-scrollbar-track {
+    background: rgba(0, 212, 255, 0.1);
+    border-radius: 10px;
+}
+
+.instructions-content::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
+    border-radius: 10px;
+}
+
+.instructions-content::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, #00e6ff 0%, #00aadd 100%);
+}
 
