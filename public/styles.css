@@ -944,36 +944,151 @@ body {
     50% { transform: scale(1.2); opacity: 1; }
     100% { transform: scale(1); opacity: 1; }
 }
+
+/* End Game Modal - Styled Like Instructions UI */
 .endgame-overlay {
     position: fixed;
-    top:0; left:0;
-    width:100%; height:100%;
-    background: rgba(0,0,0,0.85);
-    color: #fff;
-    font-size: 3em;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    flex-direction: column;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
     z-index: 9999;
     opacity: 0;
     pointer-events: none;
-    transition: opacity 0.3s ease;
+    transition: opacity 0.3s ease-in-out;
+    animation: fadeInOverlay 0.3s ease-in-out;
 }
+
 .endgame-overlay.active {
     opacity: 1;
     pointer-events: all;
 }
-.endgame-overlay button {
-    margin-top: 20px;
-    padding: 12px 28px;
-    font-size: 18px;
-    background: linear-gradient(90deg,#2ecc71 50%,#27ae60 100%);
-    color: #fff;
-    border:none;
-    border-radius:10px;
-    cursor:pointer;
-    font-weight:700;
+
+.endgame-modal {
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    border-radius: 20px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+    max-width: 550px;
+    width: 90%;
+    border: 3px solid #00d4ff;
+    display: flex;
+    flex-direction: column;
+    animation: slideInModal 0.4s ease-out;
+    overflow: hidden;
+}
+
+.endgame-header {
+    background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
+    padding: 24px;
+    border-radius: 17px 17px 0 0;
+    border-bottom: 3px solid #00a3e0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.endgame-header h1 {
+    margin: 0;
+    color: #1e3c72;
+    font-size: 40px;
+    font-weight: 900;
+    font-family: 'Press Start 2P', monospace;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+    letter-spacing: 2px;
+}
+
+.endgame-content {
+    padding: 48px 32px;
+    color: #ffffff;
+    text-align: center;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.endgame-emoji {
+    font-size: 80px;
+    margin-bottom: 24px;
+    animation: bounce 0.6s ease-in-out;
+}
+
+@keyframes bounce {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-20px);
+    }
+}
+
+.endgame-message {
+    font-size: 28px;
+    font-family: 'Press Start 2P', monospace;
+    color: #00ff88;
+    margin: 0;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.4);
+    letter-spacing: 1px;
+}
+
+.endgame-footer {
+    padding: 24px 32px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 0 0 17px 17px;
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    border-top: 2px solid rgba(0, 212, 255, 0.3);
+}
+
+.endgame-btn {
+    padding: 14px 32px;
+    font-size: 14px;
+    font-family: 'Press Start 2P', monospace;
+    font-weight: 900;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.2s ease;
+    letter-spacing: 1px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.endgame-btn.primary {
+    background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
+    color: #1e3c72;
+}
+
+.endgame-btn.primary:hover {
+    background: linear-gradient(135deg, #00e6ff 0%, #00aadd 100%);
+    box-shadow: 0 6px 16px rgba(0, 212, 255, 0.6);
+    transform: translateY(-2px);
+}
+
+.endgame-btn.primary:active {
+    transform: translateY(0);
+}
+
+.endgame-btn.secondary {
+    background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+    color: #ffffff;
+}
+
+.endgame-btn.secondary:hover {
+    background: linear-gradient(135deg, #ec7063 0%, #d35400 100%);
+    box-shadow: 0 6px 16px rgba(231, 76, 60, 0.6);
+    transform: translateY(-2px);
+}
+
+.endgame-btn.secondary:active {
+    transform: translateY(0);
 }
 
 .endgame-card {
@@ -993,21 +1108,213 @@ body {
 .endgame-actions .eg-restart { background: linear-gradient(90deg,#ffd24d,#ffb84d); }
 .endgame-actions .eg-lobby { background: linear-gradient(90deg,#6fa8ff,#4a80ff); color:#fff; }
 
-/* Time-up overlay */
+/* Time-up overlay - Styled Like Instructions UI */
 .timeup-overlay {
-    position: fixed;
-    top:0; left:0; right:0; bottom:0;
-    display:flex; align-items:center; justify-content:center;
-    background: rgba(0,0,0,0.85);
-    z-index: 9998;
-    opacity: 0; pointer-events: none; transition: opacity 0.25s ease;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    background: rgba(0, 0, 0, 0.85) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    z-index: 999999 !important;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease-in-out;
 }
-.timeup-overlay.active { opacity: 1; pointer-events: all; }
-.timeup-card { text-align:center; color:#fff; padding:24px 32px; border-radius:12px; }
-.timeup-emoji { font-size:64px; margin-bottom:8px; }
-.timeup-title { font-size:36px; font-weight:800; margin-bottom:6px; }
-.timeup-sub { opacity:0.85; margin-bottom:12px; }
-.timeup-actions button { padding:10px 20px; border-radius:8px; border:none; background:#ffd24d; font-weight:800; cursor:pointer; }
+
+.timeup-overlay.active {
+    opacity: 1 !important;
+    pointer-events: all !important;
+    animation: fadeInOverlay 0.4s ease-in-out, screenShake 0.5s ease-out;
+}
+
+.timeup-modal {
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    border-radius: 20px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+    max-width: 600px;
+    width: 90%;
+    min-height: auto;
+    border: 3px solid #00d4ff;
+    display: flex !important;
+    flex-direction: column;
+    animation: slideInModal 0.4s ease-out, modalPulse 2s ease-in-out infinite;
+    overflow: hidden;
+    position: relative;
+    z-index: 1000;
+}
+
+.timeup-header {
+    background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
+    padding: 32px 24px;
+    border-radius: 17px 17px 0 0;
+    border-bottom: 3px solid #00a3e0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.timeup-header h1 {
+    margin: 0;
+    color: #1e3c72;
+    font-size: 36px;
+    font-weight: 900;
+    font-family: 'Press Start 2P', monospace;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+    letter-spacing: 2px;
+    animation: headerGlow 1.2s ease-in-out infinite;
+}
+
+.timeup-header-emoji {
+    font-size: 48px;
+    animation: bounceAndPulse 0.8s ease-in-out infinite;
+}
+
+.timeup-content {
+    padding: 48px 32px;
+    color: #ffffff;
+    text-align: center;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.timeup-subtitle {
+    font-size: 18px;
+    font-family: 'Press Start 2P', monospace;
+    color: #00d4ff;
+    margin: 0;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+    letter-spacing: 1px;
+}
+
+.timeup-message {
+    font-size: 20px;
+    font-family: 'Press Start 2P', monospace;
+    color: #e0e0e0;
+    margin: 12px 0 0 0;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.4);
+    letter-spacing: 1px;
+    line-height: 1.4;
+}
+
+.timeup-footer {
+    padding: 28px 32px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 0 0 17px 17px;
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    border-top: 2px solid rgba(0, 212, 255, 0.3);
+}
+
+.timeup-btn {
+    padding: 14px 32px;
+    font-size: 13px;
+    font-family: 'Press Start 2P', monospace;
+    font-weight: 900;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.2s ease;
+    letter-spacing: 1px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.timeup-btn.primary {
+    background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
+    color: #1e3c72;
+}
+
+.timeup-btn.primary:hover {
+    background: linear-gradient(135deg, #00e6ff 0%, #00aadd 100%);
+    box-shadow: 0 6px 16px rgba(0, 212, 255, 0.6);
+    transform: translateY(-2px);
+}
+
+.timeup-btn.primary:active {
+    transform: translateY(0);
+}
+
+.timeup-btn.secondary {
+    background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+    color: #ffffff;
+}
+
+.timeup-btn.secondary:hover {
+    background: linear-gradient(135deg, #ec7063 0%, #d35400 100%);
+    box-shadow: 0 6px 16px rgba(231, 76, 60, 0.6);
+    transform: translateY(-2px);
+}
+
+.timeup-btn:active {
+    transform: translateY(0);
+}
+
+.timeup-btn.primary:active {
+    transform: translateY(0);
+}
+
+.timeup-btn.secondary:active {
+    transform: translateY(0);
+}
+
+/* Screen shake and pulse animations for TIME'S UP */
+@keyframes screenShake {
+    0%, 100% {
+        transform: translateX(0);
+    }
+    10%, 30%, 50%, 70%, 90% {
+        transform: translateX(-5px);
+    }
+    20%, 40%, 60%, 80% {
+        transform: translateX(5px);
+    }
+}
+
+@keyframes headerGlow {
+    0%, 100% {
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2), 0 0 10px rgba(255, 200, 0, 0.2);
+    }
+    50% {
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2), 0 0 30px rgba(255, 200, 0, 0.8);
+    }
+}
+
+@keyframes bounceAndPulse {
+    0%, 100% {
+        transform: translateY(0) scale(1);
+        filter: drop-shadow(0 0 5px rgba(255, 215, 0, 0.3));
+    }
+    50% {
+        transform: translateY(-20px) scale(1.1);
+        filter: drop-shadow(0 0 20px rgba(255, 215, 0, 0.8));
+    }
+}
+
+@keyframes modalPulse {
+    0%, 100% {
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+    }
+    50% {
+        box-shadow: 0 25px 80px rgba(0, 212, 255, 0.3);
+    }
+}
+
+.timeup-modal {
+    animation: slideInModal 0.4s ease-out, modalPulse 2s ease-in-out infinite;
+}
 
 /* Pause Menu Overlay */
 .pause-overlay {

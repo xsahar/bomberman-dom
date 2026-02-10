@@ -314,10 +314,44 @@ export class Player {
         if (!overlay) {
             overlay = document.createElement('div');
             overlay.className = 'endgame-overlay';
-            overlay.innerHTML = `<div>${msg}</div><button onclick="location.reload()">Restart</button>`;
+            
+            // Determine if it's a win or loss based on the message
+            const isWin = msg.includes('Won');
+            const emoji = isWin ? '🎉' : '💀';
+            const title = isWin ? 'Victory!' : 'Defeat!';
+            
+            overlay.innerHTML = `
+                <div class="endgame-modal">
+                    <div class="endgame-header">
+                        <h1>${title}</h1>
+                    </div>
+                    
+                    <div class="endgame-content">
+                        <div class="endgame-emoji">${emoji}</div>
+                        <p class="endgame-message">${msg}</p>
+                    </div>
+                    
+                    <div class="endgame-footer">
+                        <button class="endgame-btn primary" id="restart-btn">Play Again</button>
+                        <button class="endgame-btn secondary" id="exit-btn">Exit to Lobby</button>
+                    </div>
+                </div>
+            `;
             document.body.appendChild(overlay);
+            
+            // Add event listeners
+            const restartBtn = overlay.querySelector('#restart-btn');
+            const exitBtn = overlay.querySelector('#exit-btn');
+            
+            restartBtn.addEventListener('click', () => {
+                location.reload();
+            });
+            
+            exitBtn.addEventListener('click', () => {
+                location.reload();
+            });
         } else {
-            overlay.querySelector('div').textContent = msg;
+            overlay.querySelector('p').textContent = msg;
         }
         overlay.classList.add('active');
         try {

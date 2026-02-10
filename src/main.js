@@ -78,14 +78,48 @@ function formatTime(seconds) {
     return `${m}:${s}`;
 }
 
+// Play sound notification using Web Audio API
+function playTimeUpSound() {
+    try {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        
+        // Create alarm sound - three beeps escalating in frequency
+        const now = audioContext.currentTime;
+        const beepDuration = 0.2;
+        const beepPause = 0.1;
+        
+        const beeps = [
+            { freq: 800, time: now },
+            { freq: 1000, time: now + beepDuration + beepPause },
+            { freq: 1200, time: now + (beepDuration + beepPause) * 2 }
+        ];
+        
+        beeps.forEach(beep => {
+            const osc = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+            
+            osc.frequency.value = beep.freq;
+            osc.type = 'sine';
+            
+            gain.gain.setValueAtTime(0.3, beep.time);
+            gain.gain.exponentialRampToValueAtTime(0.01, beep.time + beepDuration);
+            
+            osc.connect(gain);
+            gain.connect(audioContext.destination);
+            
+            osc.start(beep.time);
+            osc.stop(beep.time + beepDuration);
+        });
+    } catch (e) {
+        console.log('Audio playback not available');
+    }
+}
+
 // Countdown timer — accepts optional server `startedAt` timestamp to sync
 function startTimer(startedAt = null, durationSeconds = 120) {
     clearInterval(timerInterval);
 
     function tick() {
-        // Skip timer tick if game is paused
-        if (gamePaused) return;
-
         let remaining = durationSeconds;
         if (startedAt) {
             const elapsed = Math.floor((Date.now() - startedAt) / 1000);
@@ -93,16 +127,20 @@ function startTimer(startedAt = null, durationSeconds = 120) {
         } else {
             const state = store.getState();
             remaining = Math.max(0, (typeof state.gameTime === 'number' ? state.gameTime : durationSeconds));
-            // decrement for local-only timer
-            remaining = Math.max(0, remaining - 1);
-            store.setState({ gameTime: remaining });
+            // decrement for local-only timer (even if paused, we need to check for timeout)
+            if (!gamePaused) {
+                remaining = Math.max(0, remaining - 1);
+                store.setState({ gameTime: remaining });
+            }
         }
 
         const el = document.getElementById('game-timer');
         if (el) el.textContent = formatTime(remaining);
 
+        // Check for time up - this should trigger even if paused
         if (remaining <= 0) {
             clearInterval(timerInterval);
+            console.log('⏱️ Time reached 0:00 - showing TIME\'S UP overlay');
             showTimeUpOverlay();
         }
     }
@@ -114,29 +152,38 @@ function startTimer(startedAt = null, durationSeconds = 120) {
 
 // Show a full-screen overlay when time is up
 function showTimeUpOverlay() {
+    // Play time-up alert sound
+    playTimeUpSound();
+    
     stopGame('timeup');
-    try {
-        if (window.gameUI && typeof window.gameUI.showEndGame === 'function') {
-            window.gameUI.showEndGame('timeup', 'Time is up!', 'The round has ended.');
-            return;
-        }
-    } catch (e) { /* ignore */ }
-
-    // legacy fallback
+    
+    // Use custom timeup overlay instead of generic gameUI
     let overlay = document.querySelector('.timeup-overlay');
     if (!overlay) {
         overlay = document.createElement('div');
         overlay.className = 'timeup-overlay';
         overlay.innerHTML = `
-            <div class="timeup-card">
-                <div class="timeup-emoji">⏱️</div>
-                <div class="timeup-title">Time is up!</div>
-                <div class="timeup-sub">The round has ended.</div>
-                <div class="timeup-actions"><button id="timeup-restart">Restart</button></div>
+            <div class="timeup-modal">
+                <div class="timeup-header">
+                    <div class="timeup-header-emoji">⏱️</div>
+                    <h1>TIME'S UP!</h1>
+                </div>
+                
+                <div class="timeup-content">
+                    <p class="timeup-subtitle">Round Ended</p>
+                    <p class="timeup-message">The round has ended.</p>
+                </div>
+                
+                <div class="timeup-footer">
+                    <button class="timeup-btn primary" id="timeup-restart">Play Again</button>
+                    <button class="timeup-btn secondary" id="timeup-exit">Exit to Lobby</button>
+                </div>
             </div>`;
         document.body.appendChild(overlay);
         const btn = overlay.querySelector('#timeup-restart');
         if (btn) btn.addEventListener('click', () => location.reload());
+        const exitBtn = overlay.querySelector('#timeup-exit');
+        if (exitBtn) exitBtn.addEventListener('click', () => location.reload());
     }
     overlay.classList.add('active');
 }
