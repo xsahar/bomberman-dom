@@ -1,17 +1,9 @@
-/**
- * Game Instructions Modal
- * Displays instructions before game starts
- */
 
 export class GameInstructions {
     constructor() {
         this.modal = null;
     }
 
-    /**
-     * Show the instructions modal
-     * Returns a promise that resolves when user acknowledges instructions
-     */
     show() {
         return new Promise((resolve) => {
             this.modal = document.createElement('div');
@@ -33,19 +25,19 @@ export class GameInstructions {
                             <h2>⌨️ Controls</h2>
                             <div class="controls-grid">
                                 <div class="control-item">
-                                    <span class="control-key">↑ / W</span>
+                                    <span class="control-key">↑ </span>
                                     <span class="control-desc">Move Up</span>
                                 </div>
                                 <div class="control-item">
-                                    <span class="control-key">↓ / S</span>
+                                    <span class="control-key"> ↓ </span>
                                     <span class="control-desc">Move Down</span>
                                 </div>
                                 <div class="control-item">
-                                    <span class="control-key">← / A</span>
+                                    <span class="control-key"> ← </span>
                                     <span class="control-desc">Move Left</span>
                                 </div>
                                 <div class="control-item">
-                                    <span class="control-key">→ / D</span>
+                                    <span class="control-key"> → </span>
                                     <span class="control-desc">Move Right</span>
                                 </div>
                                 <div class="control-item">
@@ -53,7 +45,7 @@ export class GameInstructions {
                                     <span class="control-desc">Place Bomb</span>
                                 </div>
                                 <div class="control-item">
-                                    <span class="control-key">P</span>
+                                    <span class="control-key">  Esc </span>
                                     <span class="control-desc">Pause / Resume</span>
                                 </div>
                             </div>
