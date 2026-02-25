@@ -7,6 +7,7 @@ const TILE_SIZE = 40;       // Size of each map tile in pixels
 const PLAYER_SIZE = 32;     // Size of the player sprite in pixels
 const OFFSET = (TILE_SIZE - PLAYER_SIZE) / 2; // Center player in tile
 const SPEED = 4;            // Movement speed (pixels per frame)
+const MOVE_DELAY = 8;       // Frames between discrete tile movements when key is held
 
 export class Player {
     constructor(playerOptions = {}) {
@@ -53,21 +54,22 @@ export class Player {
         // --- 4. Keyboard input handling ---
         this.keys = {};
         window.addEventListener('keydown', e => {
-            this.keys[e.key] = true;
             if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) {
                 e.preventDefault();
             }
+            this.keys[e.key] = true;
         });
         window.addEventListener('keyup', e => {
-            this.keys[e.key] = false;
             if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) {
                 e.preventDefault();
             }
+            this.keys[e.key] = false;
         });
 
         // --- 5. Animation state ---
         this.direction = 0;    
-        this.isMoving = false; 
+        this.isMoving = false;
+        this.moveTickCounter = 0;  // Counter for frame-based movement delay
 
         // --- 6. Initial render ---
         this.render(); 
@@ -78,84 +80,82 @@ export class Player {
     update() {
         if (this.dead) return;
 
-        let dx = 0, dy = 0;
-        if (this.keys['ArrowUp']) { dy = -this.speed; this.direction = 3; }
-        if (this.keys['ArrowDown']) { dy = this.speed; this.direction = 0; }
-        if (this.keys['ArrowLeft']) { dx = -this.speed; this.direction = 1; }
-        if (this.keys['ArrowRight']) { dx = this.speed; this.direction = 2; }
+        this.moveTickCounter++;
 
-        if (dx !== 0 || dy !== 0) this.move(dx, dy);
+        let dx = 0, dy = 0;
+        // Move if key is held AND enough frames have passed (continuous movement with delay)
+        if (this.moveTickCounter >= MOVE_DELAY) {
+            if (this.keys['ArrowUp']) { dy = -TILE_SIZE; this.direction = 3; }
+            if (this.keys['ArrowDown']) { dy = TILE_SIZE; this.direction = 0; }
+            if (this.keys['ArrowLeft']) { dx = -TILE_SIZE; this.direction = 1; }
+            if (this.keys['ArrowRight']) { dx = TILE_SIZE; this.direction = 2; }
+
+            if (dx !== 0 || dy !== 0) {
+                this.moveTickCounter = 0;  // Reset counter on successful movement
+                this.move(dx, dy);
+            }
+        }
     }
 
     move(dx, dy) {
         const nextX = this.x + dx;
         const nextY = this.y + dy;
         
-        // Try full movement first
+        // Discrete movement: check target tile, move only if valid (no sliding)
         if (!this.checkCollision(nextX, nextY)) {
             this.x = nextX;
             this.y = nextY;
-        } else {
-            // If diagonal movement fails, try sliding along one axis
-            // Try horizontal movement only
-            if (dx !== 0 && !this.checkCollision(nextX, this.y)) {
-                this.x = nextX;
+
+            // Update grid position
+            const centerX = this.x + PLAYER_SIZE / 2;
+            const centerY = this.y + PLAYER_SIZE / 2;
+            this.col = Math.floor(centerX / TILE_SIZE);
+            this.row = Math.floor(centerY / TILE_SIZE);
+
+            this.render();
+
+            // Multiplayer sync
+            if (window.mpWS?.ws?.readyState === 1) {
+                window.mpWS.send({
+                    type: 'action',
+                    payload: {
+                        type: 'move',
+                        row: this.row,
+                        col: this.col,
+                        x: this.x,
+                        y: this.y,
+                        direction: this.direction
+                    }
+                });
             }
-            // Try vertical movement only
-            if (dy !== 0 && !this.checkCollision(this.x, nextY)) {
-                this.y = nextY;
-            }
-        }
 
-        // Update grid position
-        const centerX = this.x + PLAYER_SIZE / 2;
-        const centerY = this.y + PLAYER_SIZE / 2;
-        this.col = Math.floor(centerX / TILE_SIZE);
-        this.row = Math.floor(centerY / TILE_SIZE);
-
-        this.render();
-
-        // Multiplayer sync
-        if (window.mpWS?.ws?.readyState === 1) {
-            window.mpWS.send({
-                type: 'action',
-                payload: {
-                    type: 'move',
-                    row: this.row,
-                    col: this.col,
-                    x: this.x,
-                    y: this.y,
-                    direction: this.direction
+            // Check for powerups
+            try {
+                const state = store.getState();
+                const powerups = state.powerups || [];
+                const found = powerups.find(p => p.row === this.row && p.col === this.col);
+                if (found) {
+                    const pm = getPowerupManager();
+                    pm.collectPowerup(this.id, found.id, this);
+                    console.log(`🔋 Powerup collected: ${found.type} at [${this.row},${this.col}]`);
+                    
+                    // Broadcast powerup collection to other players (use row/col as identifier)
+                    if (window.mpWS?.ws?.readyState === 1) {
+                        window.mpWS.send({
+                            type: 'action',
+                            payload: {
+                                type: 'powerupCollected',
+                                row: this.row,
+                                col: this.col,
+                                powerupType: found.type
+                            }
+                        });
+                        console.log(`📡 Broadcast powerup collected at [${this.row}, ${this.col}]`);
+                    }
                 }
-            });
-        }
-
-        // Check for powerups
-        try {
-            const state = store.getState();
-            const powerups = state.powerups || [];
-            const found = powerups.find(p => p.row === this.row && p.col === this.col);
-            if (found) {
-                const pm = getPowerupManager();
-                pm.collectPowerup(this.id, found.id, this);
-                console.log(`🔋 Powerup collected: ${found.type} at [${this.row},${this.col}]`);
-                
-                // Broadcast powerup collection to other players (use row/col as identifier)
-                if (window.mpWS?.ws?.readyState === 1) {
-                    window.mpWS.send({
-                        type: 'action',
-                        payload: {
-                            type: 'powerupCollected',
-                            row: this.row,
-                            col: this.col,
-                            powerupType: found.type
-                        }
-                    });
-                    console.log(`📡 Broadcast powerup collected at [${this.row}, ${this.col}]`);
-                }
+            } catch (err) {
+                console.error('Error checking/collecting powerup:', err);
             }
-        } catch (err) {
-            console.error('Error checking/collecting powerup:', err);
         }
     }
 
