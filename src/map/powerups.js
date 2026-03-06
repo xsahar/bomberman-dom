@@ -41,7 +41,7 @@ export class PowerupManager {
         newPowerup
       ]
     });
-    
+
     return newPowerup;
   }
 
@@ -49,7 +49,7 @@ export class PowerupManager {
   collectPowerup(playerId, powerupId, playerInstance = null) {
     const state = store.getState();
     const powerup = state.powerups.find(p => p.id === powerupId);
-    
+
     if (!powerup) return;
 
     // Apply effect to player (update store snapshot)
@@ -149,9 +149,9 @@ export class PowerupManager {
     // Remove collected powerup
     const updatedPowerups = state.powerups.filter(p => p.id !== powerupId);
 
-    store.setState({ 
-      players, 
-      powerups: updatedPowerups 
+    store.setState({
+      players,
+      powerups: updatedPowerups
     });
     // Render powerup UI for local player
     try { this._renderPowerupPanel(); } catch (e) { /* ignore */ }
@@ -161,7 +161,7 @@ export class PowerupManager {
   _addActivePowerup(playerId, type, expiresAt = null, timerId = null) {
     if (!playerId || !type) return;
     this.activePowerups[playerId] = this.activePowerups[playerId] || [];
-    const entry = { id: `active-${type}-${Date.now()}-${Math.random().toString(36).slice(2,6)}`, type, expiresAt, disabled: false, timerId };
+    const entry = { id: `active-${type}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, type, expiresAt, disabled: false, timerId };
     this.activePowerups[playerId].push(entry);
     this._renderPowerupPanel();
     return entry;
@@ -254,10 +254,14 @@ export class PowerupManager {
   // Render power-ups as special cells on the map
   renderPowerups(mapData, powerups) {
     const mapCopy = mapData.map(row => [...row]);
-    
+
     powerups.forEach(powerup => {
-      if (mapCopy[powerup.row] && mapCopy[powerup.row][powerup.col]) {
-        mapCopy[powerup.row][powerup.col] = {
+      // Only overlay a powerup icon on tiles that are currently empty.
+      // This avoids showing a powerup over a still-present block/wall
+      // during transient store updates (race between powerup spawn and map update).
+      const rowArr = mapCopy[powerup.row];
+      if (rowArr && rowArr[powerup.col] && rowArr[powerup.col].type === 'empty') {
+        rowArr[powerup.col] = {
           type: 'powerup',
           powerupType: powerup.type,
           id: powerup.id
