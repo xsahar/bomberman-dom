@@ -11,9 +11,10 @@
 const WebSocket = require('ws');
 
 const PORT = process.env.WS_PORT || 8081;
+const HOST = process.env.WS_HOST || '0.0.0.0';
 
-const wss = new WebSocket.Server({ port: PORT }, () => {
-  console.log(`WebSocket server listening on ws://localhost:${PORT}`);
+const wss = new WebSocket.Server({ host: HOST, port: PORT }, () => {
+  console.log(`WebSocket server listening on ws://${HOST}:${PORT}`);
 });
 
 
@@ -185,11 +186,20 @@ wss.on('connection', (ws, req) => {
     const l = lobbies.get(ws.lobby);
     if (!l) return;
     if (l.players.has(ws.id)) {
+      const leavingMeta = l.players.get(ws.id);
       l.players.delete(ws.id);
+      const leavingPayload = {
+        id: ws.id,
+        nickname: (leavingMeta && leavingMeta.nickname) || ws.nickname || ws.id,
+        // authoritative count of currently connected players in this lobby
+        remainingPlayers: l.players.size
+      };
       // clean up gameState for this player
       if (l.gameState && l.gameState.players && l.gameState.players[ws.id]) {
         delete l.gameState.players[ws.id];
       }
+      // Inform clients to remove the remote player immediately.
+      broadcastToLobby(ws.lobby, { type: 'playerLeft', payload: leavingPayload });
       // Broadcast updated lobby state to all remaining players
       broadcastToLobby(ws.lobby, { type: 'lobbyState', payload: { players: getPlayersForBroadcast(l), gameState: l.gameState } });
       // push an updated state snapshot after removal

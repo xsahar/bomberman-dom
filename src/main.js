@@ -10,6 +10,7 @@ import { LivesUI } from './player/lives.js';
 import { PauseMenu } from './ui/pauseMenu.js';
 import { GameInstructions } from './ui/instructions.js';
 import { GameUI } from './ui/gameUI.js';
+import { performanceManager } from './game/performance.js';
 
 let player; // Global reference for player
 let bombPlacer;
@@ -119,18 +120,43 @@ function playTimeUpSound() {
 function startTimer(startedAt = null, durationSeconds = 120) {
     clearInterval(timerInterval);
 
+    // Keep countdown local to avoid full app re-render on every second tick.
+    let localRemaining = durationSeconds;
+    let pausedAtMs = null;
+    let accumulatedPausedMs = 0;
+
+    function setTimerPaused(paused) {
+        if (!startedAt) return;
+        if (paused) {
+            if (pausedAtMs === null) pausedAtMs = Date.now();
+        } else if (pausedAtMs !== null) {
+            accumulatedPausedMs += Date.now() - pausedAtMs;
+            pausedAtMs = null;
+        }
+    }
+
+    // Expose timer pause control so pause menu and ws events can freeze timer instantly.
+    window.__setRoundTimerPaused = setTimerPaused;
+    if (!startedAt) {
+        const initial = store.getState().gameTime;
+        if (typeof initial === 'number') {
+            localRemaining = initial;
+        }
+    }
+
     function tick() {
-        let remaining = durationSeconds;
+        let remaining = localRemaining;
         if (startedAt) {
-            const elapsed = Math.floor((Date.now() - startedAt) / 1000);
+            const now = Date.now();
+            const effectiveNow = now - accumulatedPausedMs - (pausedAtMs !== null ? (now - pausedAtMs) : 0);
+            const elapsed = Math.floor((effectiveNow - startedAt) / 1000);
             remaining = Math.max(0, durationSeconds - elapsed);
+            localRemaining = remaining;
         } else {
-            const state = store.getState();
-            remaining = Math.max(0, (typeof state.gameTime === 'number' ? state.gameTime : durationSeconds));
-            // decrement for local-only timer (even if paused, we need to check for timeout)
+            // Decrement locally (even if paused, timeout check still runs)
             if (!gamePaused) {
-                remaining = Math.max(0, remaining - 1);
-                store.setState({ gameTime: remaining });
+                localRemaining = Math.max(0, localRemaining - 1);
+                remaining = localRemaining;
             }
         }
 
@@ -140,12 +166,15 @@ function startTimer(startedAt = null, durationSeconds = 120) {
         // Check for time up - this should trigger even if paused
         if (remaining <= 0) {
             clearInterval(timerInterval);
+            // Keep store in sync once at timeout, instead of every second.
+            try { store.setState({ gameTime: 0 }); } catch (e) { /* ignore */ }
             console.log('⏱️ Time reached 0:00 - showing TIME\'S UP overlay');
             showTimeUpOverlay();
         }
     }
 
     // initial tick and interval
+    setTimerPaused(!!gamePaused);
     tick();
     timerInterval = setInterval(tick, 1000);
 }
@@ -257,12 +286,15 @@ function initPlayer() {
 
     // Start game loop
     function gameLoop() {
+        performanceManager.measureFrameStart();
+        
         if (!gameRunning) return;
         // Skip game update if game is paused
         if (!gamePaused) {
             player.update();
         }
 
+        performanceManager.measureFrameEnd();
         gameLoopId = requestAnimationFrame(gameLoop);
     }
     gameRunning = true;
@@ -341,8 +373,13 @@ window.addEventListener('load', async () => {
                     // Initialize Pause Menu after player is spawned
                     pauseMenu = new PauseMenu({
                         wsManager: ws,
+                        onPause: () => {
+                            gamePaused = true;
+                            try { if (window.__setRoundTimerPaused) window.__setRoundTimerPaused(true); } catch (e) { /* ignore */ }
+                        },
                         onResume: () => {
                             gamePaused = false;
+                            try { if (window.__setRoundTimerPaused) window.__setRoundTimerPaused(false); } catch (e) { /* ignore */ }
                             // Game loop continues automatically
                         },
                         onRestart: () => {
@@ -407,7 +444,21 @@ window.addEventListener('load', async () => {
                     }
                 }
             });
-            ws.on('playerLeft', p => p && rpm.removePlayer(p.id));
+            ws.on('playerLeft', p => {
+                if (!p) return;
+                rpm.removePlayer(p.id, p.remainingPlayers);
+
+                // If someone leaves and we're now alone, ensure pause state is cleared locally.
+                if (typeof p.remainingPlayers === 'number' && p.remainingPlayers <= 1) {
+                    gamePaused = false;
+                    try { if (window.__setRoundTimerPaused) window.__setRoundTimerPaused(false); } catch (e) { /* ignore */ }
+                    try {
+                        if (pauseMenu && typeof pauseMenu.remoteResume === 'function') {
+                            pauseMenu.remoteResume();
+                        }
+                    } catch (e) { /* ignore */ }
+                }
+            });
             ws.on('action', a => rpm.handleAction(a));
             ws.on('stateSync', s => rpm.syncState(s));
             
@@ -417,9 +468,11 @@ window.addEventListener('load', async () => {
                 
                 if (payload && payload.action === 'pause') {
                     gamePaused = true;
+                    try { if (window.__setRoundTimerPaused) window.__setRoundTimerPaused(true); } catch (e) { /* ignore */ }
                     pauseMenu.remotePause();
                 } else if (payload && payload.action === 'resume') {
                     gamePaused = false;
+                    try { if (window.__setRoundTimerPaused) window.__setRoundTimerPaused(false); } catch (e) { /* ignore */ }
                     pauseMenu.remoteResume();
                 }
             });

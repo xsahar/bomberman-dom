@@ -10,6 +10,7 @@ export class RemotePlayersManager {
     this.mapContainer = mapContainer;
     this.players = new Map(); // id => { element, nickname }
     this._localWinShown = false;
+    this._hadRemoteOpponent = false;
   }
 
   addPlayer({ id, nickname, clientId } = {}) {
@@ -87,28 +88,39 @@ export class RemotePlayersManager {
     el.style.backgroundPosition = '0% 0%';
     this.mapContainer.appendChild(el);
     this.players.set(id, { element: el, nickname: nickname || id, clientId: clientId });
+    this._hadRemoteOpponent = true;
   }
 
-  removePlayer(id) {
+  removePlayer(id, remainingPlayers = null) {
     const p = this.players.get(id);
     if (!p) return;
     if (p.element && p.element.parentNode) p.element.remove();
     this.players.delete(id);
     console.log(`🚪 Player ${id} removed. Remaining players:`, this.players.size);
-    this._checkLocalWinOnSolo();
+    this._checkLocalWinOnSolo(remainingPlayers);
   }
 
-  _checkLocalWinOnSolo() {
+  _checkLocalWinOnSolo(remainingPlayers = null) {
     if (this._localWinShown) return;
+    if (!this._hadRemoteOpponent) return;
     console.log('🔍 Checking win condition - players remaining:', this.players.size);
     try {
+      const gameState = (store.getState() && store.getState().gameState) || 'lobby';
+      if (gameState !== 'playing') {
+        return;
+      }
       // Only trigger win if there's an active local player who is alive
       if (!window.player || window.player.dead) {
         console.log('❌ No win - player not found or dead');
         return;
       }
-      // Check if there are no remote players left
-      if (this.players.size === 0) {
+      // Prefer authoritative server count when available.
+      // remainingPlayers includes the local player, so 1 means local is last one.
+      const shouldWin = (typeof remainingPlayers === 'number')
+        ? remainingPlayers === 1
+        : this.players.size === 0;
+
+      if (shouldWin) {
         console.log('✅ All remote players left - showing win!');
         if (typeof window.player.showEndGameMessage === 'function') {
           this._localWinShown = true;
@@ -205,11 +217,13 @@ export class RemotePlayersManager {
       console.log(`☠️ Remote player ${playerId} died`);
       // remove remote player's visual
       this.removePlayer(playerId);
-      // If local player exists and is alive, and no remote players remain, show local win
+      // If local player exists and is alive, and no remote players remain during active play, show local win
       try {
+        const gameState = (store.getState() && store.getState().gameState) || 'lobby';
         if (window.player && !window.player.dead) {
-          if (this.players.size === 0) {
+          if (gameState === 'playing' && this._hadRemoteOpponent && this.players.size === 0) {
             if (typeof window.player.showEndGameMessage === 'function') {
+              this._localWinShown = true;
               window.player.showEndGameMessage('🎉 You Won!');
             }
           }

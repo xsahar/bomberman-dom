@@ -85,10 +85,20 @@ export class Player {
         let dx = 0, dy = 0;
         // Move if key is held AND enough frames have passed (continuous movement with delay)
         if (this.moveTickCounter >= MOVE_DELAY) {
-            if (this.keys['ArrowUp']) { dy = -TILE_SIZE; this.direction = 3; }
-            if (this.keys['ArrowDown']) { dy = TILE_SIZE; this.direction = 0; }
-            if (this.keys['ArrowLeft']) { dx = -TILE_SIZE; this.direction = 1; }
-            if (this.keys['ArrowRight']) { dx = TILE_SIZE; this.direction = 2; }
+            // Allow only one axis per move tick to avoid diagonal corner clipping.
+            if (this.keys['ArrowUp'] && !this.keys['ArrowDown']) {
+                dy = -TILE_SIZE;
+                this.direction = 3;
+            } else if (this.keys['ArrowDown'] && !this.keys['ArrowUp']) {
+                dy = TILE_SIZE;
+                this.direction = 0;
+            } else if (this.keys['ArrowLeft'] && !this.keys['ArrowRight']) {
+                dx = -TILE_SIZE;
+                this.direction = 1;
+            } else if (this.keys['ArrowRight'] && !this.keys['ArrowLeft']) {
+                dx = TILE_SIZE;
+                this.direction = 2;
+            }
 
             if (dx !== 0 || dy !== 0) {
                 this.moveTickCounter = 0;  // Reset counter on successful movement
@@ -164,9 +174,11 @@ export class Player {
         const mapData = store.getState().map?.data;
         if (!mapData) return true;
 
+        const edge = PLAYER_SIZE - 1;
+
         const points = [
-            {x:newX, y:newY}, {x:newX+PLAYER_SIZE, y:newY},
-            {x:newX, y:newY+PLAYER_SIZE}, {x:newX+PLAYER_SIZE, y:newY+PLAYER_SIZE}
+            {x:newX, y:newY}, {x:newX+edge, y:newY},
+            {x:newX, y:newY+edge}, {x:newX+edge, y:newY+edge}
         ];
 
         for (const p of points) {

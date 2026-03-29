@@ -15,6 +15,8 @@ export class ExplosionSystem {
     triggerExplosion(bomb, mapData, player) {
         if (!bomb) return;
 
+        const SHOW_EXPLOSION_VISUALS = true;
+
         console.log(`💥 BOOM! Bomb at [${bomb.row}, ${bomb.col}] exploded.`);
 
         // 1. CALCULATE FIRE PATH (The "+" Shape)
@@ -84,22 +86,24 @@ export class ExplosionSystem {
             this.triggerExplosion(chainBomb, mapData, player);
         });
 
-        // 3. CREATE EXPLOSION VISUALS
-        affectedTiles.forEach(tile => {
-            const TILE_SIZE = 40;
-            const explosionDiv = document.createElement('div');
-            explosionDiv.className = 'explosion';
-            explosionDiv.style.left = (tile.col * TILE_SIZE) + 'px';
-            explosionDiv.style.top = (tile.row * TILE_SIZE) + 'px';
-            
-            const mapContainer = document.querySelector('.map');
-            if (mapContainer) {
-                mapContainer.appendChild(explosionDiv);
-            }
-            
-            // Remove explosion visual after 500ms
-            setTimeout(() => explosionDiv.remove(), 500);
-        });
+        // 3. CREATE EXPLOSION VISUALS (optional - disabled to minimize repaint)
+        if (SHOW_EXPLOSION_VISUALS) {
+            affectedTiles.forEach(tile => {
+                const TILE_SIZE = 40;
+                const explosionDiv = document.createElement('div');
+                explosionDiv.className = 'explosion';
+                explosionDiv.style.left = (tile.col * TILE_SIZE) + 'px';
+                explosionDiv.style.top = (tile.row * TILE_SIZE) + 'px';
+
+                const mapContainer = document.querySelector('.map');
+                if (mapContainer) {
+                    mapContainer.appendChild(explosionDiv);
+                }
+
+                // Remove explosion visual after 500ms
+                setTimeout(() => explosionDiv.remove(), 500);
+            });
+        }
 
         // 4. UPDATE STORE (only after explosion, not during frequent updates)
         // This will trigger the map renderer to update and show destroyed blocks

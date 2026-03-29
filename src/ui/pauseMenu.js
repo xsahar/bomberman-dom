@@ -1,6 +1,7 @@
 // Pause Menu System with multiplayer sync
 export class PauseMenu {
-  constructor({ onResume, onRestart, onExit, wsManager } = {}) {
+  constructor({ onPause, onResume, onRestart, onExit, wsManager } = {}) {
+    this.onPause = onPause;
     this.onResume = onResume;
     this.onRestart = onRestart;
     this.onExit = onExit;
@@ -15,6 +16,7 @@ export class PauseMenu {
   setupKeyListener() {
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' || e.key === 'Esc') {
+        if (e.repeat) return;
         e.preventDefault();
         if (this.isPaused) {
           this.resume();
@@ -28,6 +30,8 @@ export class PauseMenu {
   pause() {
     if (this.isPaused) return;
     this.isPaused = true;
+
+    if (this.onPause) this.onPause();
 
     // Clear player keys to stop any ongoing movement
     if (window.player && window.player.keys) {
@@ -122,6 +126,7 @@ export class PauseMenu {
   remotePause() {
     if (this.isPaused) return;
     this.isPaused = true;
+    if (this.onPause) this.onPause();
     this.showPauseMenu();
   }
 
