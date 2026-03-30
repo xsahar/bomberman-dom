@@ -180,6 +180,17 @@ wss.on('connection', (ws, req) => {
   
   ws.lobby = lobbyName;
   const lobby = ensureLobby(ws.lobby);
+  
+  // If joining a 'playing' lobby with solo player left, reset it to lobby state
+  const lobbyPlayerCount = Array.from(lobby.players.values()).filter(p => p && p.inLobby !== false).length;
+  if (lobby.gameState.state === 'playing' && lobbyPlayerCount <= 1) {
+    // Reset lobby state if only 1 or fewer players are left in a game
+    cleanupLobbyTimers(lobby);
+    lobby.gameState = { state: 'lobby' };
+    lobby.sharedMap = null;
+    console.log(`[LOBBY] Resetting '${ws.lobby}' from playing to lobby (${lobbyPlayerCount} player(s) detected)`);
+  }
+  
   console.log(`[LOBBY] Assigned ${ws.id} to lobby: ${lobbyName}`);
 
   function removePlayer() {
@@ -188,6 +199,15 @@ wss.on('connection', (ws, req) => {
     if (l.players.has(ws.id)) {
       const leavingMeta = l.players.get(ws.id);
       l.players.delete(ws.id);
+      
+      // If game is playing and only 1 player or fewer left, reset the lobby FIRST
+      if (l.gameState.state === 'playing' && l.players.size <= 1) {
+        cleanupLobbyTimers(l);
+        l.gameState = { state: 'lobby' };
+        l.sharedMap = null;
+        console.log(`[LOBBY] Game in '${ws.lobby}' ended: ${l.players.size} player(s) remaining`);
+      }
+      
       const leavingPayload = {
         id: ws.id,
         nickname: (leavingMeta && leavingMeta.nickname) || ws.nickname || ws.id,
@@ -200,7 +220,7 @@ wss.on('connection', (ws, req) => {
       }
       // Inform clients to remove the remote player immediately.
       broadcastToLobby(ws.lobby, { type: 'playerLeft', payload: leavingPayload });
-      // Broadcast updated lobby state to all remaining players
+      // Broadcast updated lobby state to all remaining players (includes reset state if game ended)
       broadcastToLobby(ws.lobby, { type: 'lobbyState', payload: { players: getPlayersForBroadcast(l), gameState: l.gameState } });
       // push an updated state snapshot after removal
       scheduleStateSync(ws.lobby, 50);
@@ -295,6 +315,16 @@ wss.on('connection', (ws, req) => {
     if (msg.type === 'pause' && msg.payload) {
       const payload = Object.assign({}, msg.payload, { playerId: ws.id });
       broadcastToLobby(ws.lobby, { type: 'pause', payload });
+      return;
+    }
+
+    // Restart round: force all players in this lobby back to lobby/reload together
+    if (msg.type === 'restart') {
+      cleanupLobbyTimers(lobby);
+      lobby.gameState = { state: 'lobby' };
+      lobby.sharedMap = null;
+      broadcastToLobby(ws.lobby, { type: 'restart', payload: { by: ws.id } });
+      broadcastToLobby(ws.lobby, { type: 'lobbyState', payload: { players: getPlayersForBroadcast(lobby), gameState: lobby.gameState } });
       return;
     }
 

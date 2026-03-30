@@ -12,7 +12,8 @@ export class PerformanceManager {
     this.lastSecond = performance.now();
     this.droppedFrames = 0;
     this.maxFrameTime = 16.67; // 60fps budget in ms
-    this.enabled = true;
+    // Keep disabled by default to avoid console overhead affecting FPS.
+    this.enabled = false;
     this.history = []; // Last 60 frame times for analysis
     this.warningThreshold = 14; // Warn if frame takes > 14ms (leaving margin)
   }
@@ -21,6 +22,7 @@ export class PerformanceManager {
    * Call at START of game loop frame
    */
   measureFrameStart() {
+    if (!this.enabled) return;
     this.frameStart = performance.now();
   }
 
@@ -29,6 +31,7 @@ export class PerformanceManager {
    * Returns frame time in milliseconds
    */
   measureFrameEnd() {
+    if (!this.enabled) return 0;
     this.frameEnd = performance.now();
     this.frameTime = this.frameEnd - this.frameStart;
     this.frameCount++;
@@ -87,6 +90,10 @@ export class PerformanceManager {
     this.enabled = enabled;
   }
 
+  isEnabled() {
+    return !!this.enabled;
+  }
+
   /**
    * Reset stats
    */
@@ -98,3 +105,15 @@ export class PerformanceManager {
 }
 
 export const performanceManager = new PerformanceManager();
+
+// Optional runtime toggle for profiling sessions only.
+try {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    const flag = window.localStorage.getItem('mp_perf_debug');
+    if (flag === '1' || flag === 'true') {
+      performanceManager.setEnabled(true);
+    }
+  }
+} catch (e) {
+  // ignore storage access issues
+}

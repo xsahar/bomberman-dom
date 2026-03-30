@@ -19,7 +19,13 @@ let timerInterval;
 let gameLoopId;
 let gameRunning = false;
 let gamePaused = false;
+let gameEnded = false;
 let pauseMenu;
+
+function setGameEnded(value) {
+    gameEnded = !!value;
+    try { window.gameEnded = gameEnded; } catch (e) { /* ignore */ }
+}
 
 function stopGame(reason = 'ended') {
     try {
@@ -39,11 +45,10 @@ function stopGame(reason = 'ended') {
 
 // Expose to other modules (player, remote events)
 window.stopGame = stopGame;
+setGameEnded(false);
 
 // Initialize map and global game state
 function initializeGame() {
-    console.log('🎮 Initializing Data...');
-    
     const generator = new MapGenerator();
     const mapData = generator.generateMap();
 
@@ -168,8 +173,11 @@ function startTimer(startedAt = null, durationSeconds = 120) {
             clearInterval(timerInterval);
             // Keep store in sync once at timeout, instead of every second.
             try { store.setState({ gameTime: 0 }); } catch (e) { /* ignore */ }
-            console.log('⏱️ Time reached 0:00 - showing TIME\'S UP overlay');
-            showTimeUpOverlay();
+            // Don't show time-up if game already ended (e.g., win/loss shown)
+            if (!gameEnded && !window.gameEnded) {
+                console.log('⏱️ Time reached 0:00 - showing TIME\'S UP overlay');
+                showTimeUpOverlay();
+            }
         }
     }
 
@@ -181,6 +189,9 @@ function startTimer(startedAt = null, durationSeconds = 120) {
 
 // Show a full-screen overlay when time is up
 function showTimeUpOverlay() {
+    if (gameEnded || window.gameEnded) return; // Don't show if game already ended
+    setGameEnded(true);
+    
     // Play time-up alert sound
     playTimeUpSound();
     
@@ -225,6 +236,7 @@ function onPlayerHit() {
     store.setState({ playerLives: player.livesUI.currentLives });
 
     if (dead) {
+        setGameEnded(true); // Mark game as ended to prevent duplicate overlays
         alert('💀 You Lost!');
         player.element.style.opacity = 0.5;
         stopGame('lost');
@@ -233,8 +245,6 @@ function onPlayerHit() {
 
 // Initialize player, bombs, explosions, and lives
 function initPlayer() {
-    console.log('🕹️ Spawning Player...');
-    
     // Get spawn positions from map generator
     const generator = new MapGenerator();
     const spawnPositions = generator.getSpawnPositions();
@@ -242,9 +252,6 @@ function initPlayer() {
     // Use playerIndex if available from multiplayer, otherwise default to 0
     const currentPlayerIndex = (window.mpWS && window.mpWS.playerIndex !== undefined) ? window.mpWS.playerIndex : 0;
     const spawn = spawnPositions[currentPlayerIndex] || spawnPositions[0];
-    
-    console.log(`🎯 Using player index ${currentPlayerIndex} for spawn position: row=${spawn.row}, col=${spawn.col}`);
-    console.log(`🗺️ Available spawn positions:`, spawnPositions);
     
     player = new Player({
         id: 'local_player',
@@ -276,7 +283,6 @@ function initPlayer() {
                 direction: player.direction
             }
         });
-        console.log(`📡 Broadcast initial position: row=${player.row}, col=${player.col}, x=${player.x}, y=${player.y}`);
     }
 
   
@@ -286,7 +292,8 @@ function initPlayer() {
 
     // Start game loop
     function gameLoop() {
-        performanceManager.measureFrameStart();
+        const perfOn = performanceManager.isEnabled();
+        if (perfOn) performanceManager.measureFrameStart();
         
         if (!gameRunning) return;
         // Skip game update if game is paused
@@ -294,7 +301,7 @@ function initPlayer() {
             player.update();
         }
 
-        performanceManager.measureFrameEnd();
+        if (perfOn) performanceManager.measureFrameEnd();
         gameLoopId = requestAnimationFrame(gameLoop);
     }
     gameRunning = true;
@@ -302,7 +309,6 @@ function initPlayer() {
 }
 
 window.addEventListener('load', async () => {
-    console.log('✅ Page loaded');
     const container = document.getElementById('app');
     if (!container) {
         console.error("❌ Error: Container #app not found!");
@@ -345,6 +351,7 @@ window.addEventListener('load', async () => {
             const ws = new WebSocketManager({ host: location.hostname + ':8081' });
             let gameStarted = false;
             let playerIndex = 0; // Track which player this is for spawn positioning
+            let restartRequested = false;
 
             const lobby = new LobbyUI({
                 wsManager: ws,
@@ -352,6 +359,7 @@ window.addEventListener('load', async () => {
                     if (gameStarted) return;
                     gameStarted = true;
                     gameRunning = true;
+                    setGameEnded(false);
                     // Determine this client's playerIndex from the lobby state (server authoritative)
                     try {
                         const players = (state && state.players) ? state.players : [];
@@ -383,7 +391,16 @@ window.addEventListener('load', async () => {
                             // Game loop continues automatically
                         },
                         onRestart: () => {
-                            location.reload();
+                            restartRequested = true;
+                            // Ask server to restart this lobby for all connected players.
+                            ws.send({ type: 'restart' });
+                            // Fallback if restart event is delayed/lost.
+                            setTimeout(() => {
+                                if (!gameEnded && !window.gameEnded) {
+                                    setGameEnded(true);
+                                }
+                                location.reload();
+                            }, 500);
                         },
                         onExit: () => {
                             // Return to lobby
@@ -425,7 +442,6 @@ window.addEventListener('load', async () => {
             ws.on('mapSync', payload => {
                 if (payload && payload.data) {
                     store.setState({ map: { data: payload.data, rows: payload.rows, cols: payload.cols } });
-                    app.render();
                 }
             });
 
@@ -446,10 +462,12 @@ window.addEventListener('load', async () => {
             });
             ws.on('playerLeft', p => {
                 if (!p) return;
+                console.log(`[WS] playerLeft event: id=${p.id}, nickname=${p.nickname}, remainingPlayers=${p.remainingPlayers}`);
                 rpm.removePlayer(p.id, p.remainingPlayers);
 
-                // If someone leaves and we're now alone, ensure pause state is cleared locally.
+                // If someone leaves and only we remain (or game becomes solo), ensure game ends
                 if (typeof p.remainingPlayers === 'number' && p.remainingPlayers <= 1) {
+                    console.log(`[WS] Player left and we're alone (${p.remainingPlayers} remaining) - resetting pause and scheduling win check`);
                     gamePaused = false;
                     try { if (window.__setRoundTimerPaused) window.__setRoundTimerPaused(false); } catch (e) { /* ignore */ }
                     try {
@@ -457,6 +475,25 @@ window.addEventListener('load', async () => {
                             pauseMenu.remoteResume();
                         }
                     } catch (e) { /* ignore */ }
+                    
+                    // Give RemotePlayersManager a chance to trigger win via _checkLocalWinOnSolo
+                    // If that doesn't fire (edge case), force win after 100ms as backup
+                    setTimeout(() => {
+                        if (gameEnded || window.gameEnded) {
+                            console.log(`[WS] Game already ended, skipping force-win`);
+                            return; // Already ended
+                        }
+                        const state = store.getState();
+                        console.log(`[WS] Force-win check: gameEnded=${gameEnded}, gameState=${state?.gameState}, playerDead=${player?.dead}`);
+                        if (player && !player.dead) {
+                            // Force-show win if game is still running
+                            setGameEnded(true);
+                            console.log(`[WS] Force-showing win to player`);
+                            if (typeof player.showEndGameMessage === 'function') {
+                                player.showEndGameMessage('🎉 You Won!');
+                            }
+                        }
+                    }, 100);
                 }
             });
             ws.on('action', a => rpm.handleAction(a));
@@ -475,6 +512,18 @@ window.addEventListener('load', async () => {
                     try { if (window.__setRoundTimerPaused) window.__setRoundTimerPaused(false); } catch (e) { /* ignore */ }
                     pauseMenu.remoteResume();
                 }
+            });
+
+            // Server-authoritative restart: reload everyone in this lobby together.
+            ws.on('restart', () => {
+                if (restartRequested) {
+                    console.log('[WS] Restart acknowledged by server');
+                } else {
+                    console.log('[WS] Restart requested by another player');
+                }
+                setGameEnded(true);
+                stopGame('lobby');
+                setTimeout(() => location.reload(), 80);
             });
             
             ws.on('lobbyState', s => {

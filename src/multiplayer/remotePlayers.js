@@ -93,37 +93,66 @@ export class RemotePlayersManager {
 
   removePlayer(id, remainingPlayers = null) {
     const p = this.players.get(id);
-    if (!p) return;
-    if (p.element && p.element.parentNode) p.element.remove();
+    console.log(`🚨 removePlayer(${id}): found=${!!p}, mapContainer=${!!this.mapContainer}`);
+    
+    if (!p) {
+      // If player not in map, still try to remove any matching DOM elements
+      if (this.mapContainer) {
+        const elements = this.mapContainer.querySelectorAll(`[data-player-id="${id}"]`);
+        console.log(`  Fallback: Removing ${elements.length} orphaned elements for ${id}`);
+        elements.forEach(el => el.remove());
+      }
+      this._checkLocalWinOnSolo(remainingPlayers);
+      return;
+    }
+    
+    // Remove from stored map first
     this.players.delete(id);
-    console.log(`🚪 Player ${id} removed. Remaining players:`, this.players.size);
+    
+    // Remove by element reference
+    if (p.element && p.element.parentNode) {
+      console.log(`  Removing by reference: element.parentNode=${!!p.element.parentNode}`);
+      p.element.remove();
+    }
+    
+    // Force-remove all matching selectors as fallback
+    if (this.mapContainer) {
+      const remaining = this.mapContainer.querySelectorAll(`[data-player-id="${id}"]`);
+      if (remaining.length > 0) {
+        console.log(`  Force-removing ${remaining.length} remaining elements via selector`);
+        remaining.forEach(el => el.remove());
+      }
+    }
+    
+    console.log(`  RemotePlayers map now has ${this.players.size} players`);
     this._checkLocalWinOnSolo(remainingPlayers);
   }
 
   _checkLocalWinOnSolo(remainingPlayers = null) {
     if (this._localWinShown) return;
     if (!this._hadRemoteOpponent) return;
-    console.log('🔍 Checking win condition - players remaining:', this.players.size);
     try {
       const gameState = (store.getState() && store.getState().gameState) || 'lobby';
-      if (gameState !== 'playing') {
-        return;
-      }
       // Only trigger win if there's an active local player who is alive
       if (!window.player || window.player.dead) {
-        console.log('❌ No win - player not found or dead');
         return;
       }
       // Prefer authoritative server count when available.
       // remainingPlayers includes the local player, so 1 means local is last one.
+      // When playerLeft arrives, server may already have flipped state to 'lobby'.
+      // In that case we still want to grant win if remainingPlayers is authoritative.
+      if (gameState !== 'playing' && typeof remainingPlayers !== 'number') {
+        return;
+      }
       const shouldWin = (typeof remainingPlayers === 'number')
         ? remainingPlayers === 1
         : this.players.size === 0;
 
       if (shouldWin) {
-        console.log('✅ All remote players left - showing win!');
         if (typeof window.player.showEndGameMessage === 'function') {
           this._localWinShown = true;
+          // Mark game as ended globally to prevent time-up overlay from showing
+          try { if (window.gameEnded !== undefined) window.gameEnded = true; } catch (e) { /* ignore */ }
           window.player.showEndGameMessage('🎉 You Won!');
         }
       }
@@ -147,11 +176,7 @@ export class RemotePlayersManager {
     
     p.element.style.transform = `translate(${posX}px, ${posY}px)`;
     p.element.style.visibility = 'visible'; // Ensure player is visible
-    // Only log significant position changes to avoid spam
-    if (!p.lastLoggedPos || Math.abs(p.lastLoggedPos.x - posX) > 10 || Math.abs(p.lastLoggedPos.y - posY) > 10) {
-        console.log(`📍 Updated player ${id} position to: ${posX}, ${posY} (row: ${row}, col: ${col})`);
-        p.lastLoggedPos = { x: posX, y: posY };
-    }
+    p.lastLoggedPos = { x: posX, y: posY };
   }
 
   handleAction(payload) {
@@ -176,10 +201,8 @@ export class RemotePlayersManager {
         }
       }
     } else if (type === 'placeBomb') {
-      console.log(`💣 Remote player ${playerId} placed bomb at [${payload.row}, ${payload.col}]`);
       this.renderRemoteBomb(payload.row, payload.col);
     } else if (type === 'powerupSpawned') {
-      console.log(`🔋 Remote powerup spawned: ${payload.powerupType} at [${payload.row}, ${payload.col}]`);
       // Add powerup to local state so it displays
       try {
         const state = store.getState();
@@ -200,21 +223,18 @@ export class RemotePlayersManager {
         console.error('Error handling remote powerup spawn:', err);
       }
     } else if (type === 'powerupCollected') {
-      console.log(`🔋 Remote player collected powerup at [${payload.row}, ${payload.col}]`);
       // Remove powerup from local state by row/col (same tile)
       try {
         const state = store.getState();
         const powerups = state.powerups || [];
         const filtered = powerups.filter(p => !(p.row === payload.row && p.col === payload.col));
         if (filtered.length < powerups.length) {
-          console.log(`✅ Removed powerup at [${payload.row}, ${payload.col}] from local state`);
           store.setState({ powerups: filtered });
         }
       } catch (err) {
         console.error('Error handling remote powerup collection:', err);
       }
     } else if (type === 'died') {
-      console.log(`☠️ Remote player ${playerId} died`);
       // remove remote player's visual
       this.removePlayer(playerId);
       // If local player exists and is alive, and no remote players remain during active play, show local win
@@ -232,7 +252,6 @@ export class RemotePlayersManager {
         console.warn('Error handling remote death', err);
       }
     } else if (type === 'explode') {
-      console.log(`💥 Remote player ${playerId} explosion at [${payload.row}, ${payload.col}]`);
       this.handleRemoteExplosion(payload);
 
       // Determine affected tiles (prefer payload.affectedTiles if provided)
@@ -268,7 +287,6 @@ export class RemotePlayersManager {
         console.warn('Error applying remote explosion damage to local player', err);
       }
     } else if (type === 'mapUpdate') {
-      console.log(`🗺️ Map update from player ${playerId}`);
       this.handleMapUpdate(payload);
     }
   }
@@ -289,7 +307,6 @@ export class RemotePlayersManager {
     if (!this.mapContainer) return;
     const { row, col, range = 1 } = payload;
     
-    console.log(`💥 Remote explosion at [${row}, ${col}] with range ${range}`);
     
     // Remove any bomb at this position
     const bombs = this.mapContainer.querySelectorAll('.remote-bomb, .bomb');
@@ -298,7 +315,6 @@ export class RemotePlayersManager {
       const bombCol = Math.floor(parseInt(bomb.style.left) / TILE_SIZE);
       if (bombRow === row && bombCol === col) {
         bomb.remove();
-        console.log(`🗑️ Removed bomb at [${bombRow}, ${bombCol}]`);
       }
     });
     
@@ -315,12 +331,6 @@ export class RemotePlayersManager {
         store.setState({
           map: { ...store.getState().map, data: payload.mapData }
         });
-        console.log('🔄 Updated local map state from remote');
-        
-        // Force re-render of the map to show destroyed blocks
-        if (window.app && typeof window.app.render === 'function') {
-          window.app.render();
-        }
       } catch (err) {
         console.warn('Failed to update map state:', err);
       }
@@ -345,7 +355,6 @@ export class RemotePlayersManager {
       const bombCol = Math.floor(parseInt(bomb.style.left) / TILE_SIZE);
       if (bombRow === row && bombCol === col) {
         bomb.remove();
-        console.log(`💣 Removed bomb at explosion center [${row}, ${col}]`);
       }
     });
   }
@@ -378,7 +387,6 @@ export class RemotePlayersManager {
       });
     }
     
-    console.log(`🔥 Creating ${explosionPositions.length} explosion effects for remote explosion`);
     
     // Create explosion visual elements
     explosionPositions.forEach(({ row, col }) => {

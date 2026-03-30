@@ -502,32 +502,6 @@ body {
     .lobby-chat-container .chat-messages { max-height: 150px; }
 }
 
-.nickname-form {
-    margin-bottom: 20px;
-}
-
-.nickname-input {
-    padding: 10px;
-    font-size: 18px;
-    border-radius: 5px;
-    border: none;
-    margin-right: 10px;
-}
-
-.join-button {
-    padding: 10px 20px;
-    font-size: 18px;
-    background: #3498db;
-    color: white;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-}
-
-.join-button:hover {
-    background: #2980b9;
-}
-
 .waiting-room {
     text-align: center;
 }
@@ -674,7 +648,7 @@ body {
     /* Default frame: top-left (facing down) */
     background-position: 0% 0%;
     transition: transform 0.1s linear;
-    filter: drop-shadow(0 0 8px rgba(0, 212, 255, 0.6)) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.4));
+    filter: none;
     animation: none;
     will-change: transform;
 }
@@ -761,50 +735,7 @@ body {
     z-index: 0;
 }
 
-@keyframes rotate-bg {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-
-/* Lobby Container */
-.lobby-container {
-    position: relative;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    border-radius: 25px;
-    padding: 50px 40px;
-    max-width: 520px;
-    width: 90%;
-    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6);
-    text-align: center;
-    z-index: 1;
-    animation: pop-in 0.5s ease-out;
-}
-
-@keyframes pop-in {
-    0% { transform: scale(0.8); opacity: 0; }
-    100% { transform: scale(1); opacity: 1; }
-}
-
-.lobby-container h1 {
-    margin: 0 0 35px 0;
-    font-size: 2.8em;
-    color: #fff;
-    text-shadow: 2px 2px 6px rgba(0, 0, 0, 0.4);
-    animation: none;
-}
-
-@keyframes glow-text {
-    0% { text-shadow: 0 0 10px #ffd700, 0 0 20px #ffbf00, 0 0 30px #ff8c00; }
-    100% { text-shadow: 0 0 20px #ffeb3b, 0 0 30px #ffc107, 0 0 40px #ff9800; }
-}
-
-.lobby-content {
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 20px;
-    padding: 35px 30px;
-    backdrop-filter: blur(12px);
-    box-shadow: 0 15px 30px rgba(0,0,0,0.5);
-}
+/* Legacy animated lobby card styles removed: lobby now uses instructions modal layout. */
 
 /* Player List */
 .player-list h3 {
@@ -820,30 +751,6 @@ body {
     margin-bottom: 30px;
 }
 
-.lobby-player {
-    background: rgba(255, 255, 255, 0.15);
-    padding: 14px 22px;
-    border-radius: 12px;
-    color: #fff;
-    font-size: 1.15em;
-    font-weight: 700;
-    box-shadow: 0 6px 12px rgba(0,0,0,0.2);
-    transition: background 0.1s linear;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    animation: none;
-}
-
-.lobby-player:hover {
-    transform: none;
-    background: rgba(255, 255, 255, 0.25);
-}
-
-@keyframes slide-in {
-    0% { opacity: 0; transform: translateX(-20px); }
-    100% { opacity: 1; transform: translateX(0); }
-}
 
 /* Lobby Status */
 .lobby-status {
@@ -856,12 +763,7 @@ body {
     margin-bottom: 20px;
     font-weight: bold;
     animation: none;
-}
-
-@keyframes pulse-text {
-    0% { text-shadow: 0 0 5px #fff; }
-    50% { text-shadow: 0 0 15px #ffea00; }
-    100% { text-shadow: 0 0 5px #fff; }
+    font-family: 'Press Start 2P', monospace;
 }
 
 /* Countdown Timer */
@@ -880,128 +782,11 @@ body {
     font-family: 'Press Start 2P', monospace;
 }
 
-/* Make the lobby status message use the same pixel font */
-#lobby-message {
-    font-family: 'Press Start 2P', monospace;
-}
-
-@keyframes countdown-glow {
-    0% { text-shadow: 0 0 20px #ffd700, 0 0 40px #ffeb3b, 0 0 60px #ffc107; }
-    100% { text-shadow: 0 0 35px #ffd700, 0 0 60px #ffeb3b, 0 0 80px #ffc107; }
-}
-
-/* Modern game animations */
-@keyframes mapGlow {
-    0%, 100% {
-        box-shadow: 
-            0 0 40px rgba(0, 212, 255, 0.4),
-            0 20px 60px rgba(0, 0, 0, 0.7),
-            inset 0 0 30px rgba(0, 212, 255, 0.1);
-    }
-    50% {
-        box-shadow: 
-            0 0 60px rgba(0, 212, 255, 0.6),
-            0 25px 80px rgba(0, 0, 0, 0.8),
-            inset 0 0 40px rgba(0, 212, 255, 0.15);
-    }
-}
-
-@keyframes powerupPulse {
-    0%, 100% {
-        box-shadow: inset 0 0 15px rgba(255, 215, 0, 0.3), 0 0 20px rgba(255, 215, 0, 0.4);
-        transform: scale(1);
-    }
-    50% {
-        box-shadow: inset 0 0 25px rgba(255, 215, 0, 0.5), 0 0 30px rgba(255, 215, 0, 0.6);
-        transform: scale(1.05);
-    }
-}
-
-@keyframes bombPulse {
-    0%, 100% {
-        transform: scale(1);
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
-    }
-    50% {
-        transform: scale(1.03);
-        box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
-    }
-}
-
-@keyframes playerGlow {
-    0%, 100% {
-        filter: drop-shadow(0 0 8px rgba(0, 212, 255, 0.6)) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.4));
-    }
-    50% {
-        filter: drop-shadow(0 0 16px rgba(0, 212, 255, 0.8)) drop-shadow(0 4px 12px rgba(0, 0, 0, 0.5));
-    }
-}
-
 /* Hide / Show */
 #lobby-overlay.hidden {
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.3s ease;
-}
-
-/* Join Button & Nickname */
-.nickname-form {
-    margin-bottom: 25px;
-}
-
-.nickname-input {
-    padding: 12px 18px;
-    font-size: 18px;
-    border-radius: 8px;
-    border: none;
-    outline: none;
-    margin-right: 10px;
-    background: rgba(255,255,255,0.15);
-    color: #fff;
-    transition: background 0.2s;
-}
-
-.nickname-input:focus {
-    background: rgba(255,255,255,0.3);
-}
-
-.join-button {
-    padding: 12px 28px;
-    font-size: 18px;
-    background: linear-gradient(90deg, #2ecc71 50%, #27ae60 100%);
-    color: #fff;
-    border: none;
-    border-radius: 10px;
-    cursor: pointer;
-    font-weight: 700;
-    transition: transform 0.2s, box-shadow 0.2s;
-    box-shadow: 0 5px 15px rgba(46,204,113,0.4);
-}
-
-.join-button:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(46,204,113,0.6);
-}
-
-/* Player lives (visual only) */
-.player-lives {
-    position: fixed;
-    top: 20px;
-    left: 20px;
-    display: flex;
-    gap: 12px;
-    z-index: 1000;
-    pointer-events: none;
-    background: rgba(0, 0, 0, 0.4);
-    backdrop-filter: blur(8px);
-    padding: 12px 18px;
-    border-radius: 12px;
-    border: 2px solid rgba(0, 212, 255, 0.3);
-    box-shadow: 0 0 20px rgba(0, 212, 255, 0.2), 0 8px 16px rgba(0, 0, 0, 0.5);
-}
-
-.player-lives span {
-    display: inline-block;
 }
 
 /* Game Header */
@@ -1226,23 +1011,6 @@ body {
     transform: none;
 }
 
-.endgame-card {
-    background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
-    padding: 28px 36px;
-    border-radius: 12px;
-    text-align: center;
-    max-width: 520px;
-    box-shadow: 0 8px 30px rgba(0,0,0,0.6);
-}
-.endgame-emoji { font-size: 64px; margin-bottom: 8px; }
-.endgame-title { font-size: 36px; font-weight: 800; margin-bottom: 6px; }
-.endgame-sub { opacity: 0.9; margin-bottom: 12px; }
-.endgame-stats { color: #ddd; margin-bottom: 12px; }
-.endgame-actions { display:flex; gap:12px; justify-content:center; }
-.endgame-actions .eg-btn { padding:10px 18px; border-radius:10px; border:none; font-weight:800; cursor:pointer; }
-.endgame-actions .eg-restart { background: linear-gradient(90deg,#ffd24d,#ffb84d); }
-.endgame-actions .eg-lobby { background: linear-gradient(90deg,#6fa8ff,#4a80ff); color:#fff; }
-
 /* Time-up overlay - Styled Like Instructions UI */
 .timeup-overlay {
     position: fixed !important;
@@ -1397,58 +1165,8 @@ body {
     transform: none;
 }
 
-.timeup-btn.primary:active {
-    transform: none;
-}
-
 .timeup-btn.secondary:active {
     transform: none;
-}
-
-/* Screen shake and pulse animations for TIME'S UP */
-@keyframes screenShake {
-    0%, 100% {
-        transform: translateX(0);
-    }
-    10%, 30%, 50%, 70%, 90% {
-        transform: translateX(-5px);
-    }
-    20%, 40%, 60%, 80% {
-        transform: translateX(5px);
-    }
-}
-
-@keyframes headerGlow {
-    0%, 100% {
-        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2), 0 0 10px rgba(255, 200, 0, 0.2);
-    }
-    50% {
-        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2), 0 0 30px rgba(255, 200, 0, 0.8);
-    }
-}
-
-@keyframes bounceAndPulse {
-    0%, 100% {
-        transform: translateY(0) scale(1);
-        filter: drop-shadow(0 0 5px rgba(255, 215, 0, 0.3));
-    }
-    50% {
-        transform: translateY(-20px) scale(1.1);
-        filter: drop-shadow(0 0 20px rgba(255, 215, 0, 0.8));
-    }
-}
-
-@keyframes modalPulse {
-    0%, 100% {
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
-    }
-    50% {
-        box-shadow: 0 25px 80px rgba(0, 212, 255, 0.3);
-    }
-}
-
-.timeup-modal {
-    animation: none;
 }
 
 /* Pause Menu Overlay */

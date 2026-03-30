@@ -80,6 +80,9 @@ export class WebSocketManager {
         case 'pause':
           this._dispatch('pause', data.payload);
           break;
+        case 'restart':
+          this._dispatch('restart', data.payload);
+          break;
         default:
           this._dispatch('message', data);
       }

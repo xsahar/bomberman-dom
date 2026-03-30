@@ -11,8 +11,6 @@ const MOVE_DELAY = 8;       // Frames between discrete tile movements when key i
 
 export class Player {
     constructor(playerOptions = {}) {
-        console.log("🤖 Player Constructor Started...");
-
         // --- 1. Initialize Player Data ---
         this.id = playerOptions.id || 'p1';         
         this.lives = 3;         
@@ -29,9 +27,6 @@ export class Player {
         this.x = (this.col * TILE_SIZE) + OFFSET;
         this.y = (this.row * TILE_SIZE) + OFFSET;
 
-        console.log(`📍 Player ${this.id} spawn position: row=${this.spawnRow}, col=${this.spawnCol}`);
-        console.log(`📍 Initial Position calculated: x=${this.x}, y=${this.y}`);
-
         // --- 2. Create player DOM element ---
         this.element = document.createElement('div');
         this.element.className = 'player';
@@ -47,7 +42,6 @@ export class Player {
             return;
         }
         mapContainer.appendChild(this.element);
-        console.log("✅ Player element added to DOM");
 
         // Lives UI is provided by `LivesUI` (created by main), not here.
 
@@ -72,8 +66,7 @@ export class Player {
         this.moveTickCounter = 0;  // Counter for frame-based movement delay
 
         // --- 6. Initial render ---
-        this.render(); 
-        console.log("✅ Player Rendered Successfully");
+        this.render();
     }
 
     // --- Movement Update ---
@@ -147,8 +140,7 @@ export class Player {
                 if (found) {
                     const pm = getPowerupManager();
                     pm.collectPowerup(this.id, found.id, this);
-                    console.log(`🔋 Powerup collected: ${found.type} at [${this.row},${this.col}]`);
-                    
+
                     // Broadcast powerup collection to other players (use row/col as identifier)
                     if (window.mpWS?.ws?.readyState === 1) {
                         window.mpWS.send({
@@ -160,7 +152,6 @@ export class Player {
                                 powerupType: found.type
                             }
                         });
-                        console.log(`📡 Broadcast powerup collected at [${this.row}, ${this.col}]`);
                     }
                 }
             } catch (err) {
@@ -289,7 +280,6 @@ export class Player {
                     direction: this.direction
                 }
             });
-            console.log(`📡 Broadcast respawn position: row=${this.row}, col=${this.col}`);
         }
         this.render();
     }
@@ -322,6 +312,9 @@ export class Player {
 
     // --- End Game Overlay ---
     showEndGameMessage(msg) {
+        // Mark game as ended globally to prevent other overlays
+        try { if (typeof window.gameEnded !== 'undefined') window.gameEnded = true; } catch (e) { /* ignore */ }
+        
         let overlay = document.querySelector('.endgame-overlay');
         if (!overlay) {
             overlay = document.createElement('div');
