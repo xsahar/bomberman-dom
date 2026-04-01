@@ -360,6 +360,7 @@ window.addEventListener('load', async () => {
                     gameStarted = true;
                     gameRunning = true;
                     setGameEnded(false);
+                    try { store.setState({ gameState: 'playing' }); } catch (e) { /* ignore */ }
                     // Determine this client's playerIndex from the lobby state (server authoritative)
                     try {
                         const players = (state && state.players) ? state.players : [];

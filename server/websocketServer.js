@@ -65,6 +65,7 @@ function getPlayersForBroadcast(lobby) {
   const out = [];
   Array.from(lobby.players.values()).forEach(p => {
     if (p && p.inLobby === false) return;
+    if (p && p.eliminated === true) return;
     const key = p.clientId || p.id;
     if (seen.has(key)) return;
     seen.add(key);
@@ -127,6 +128,9 @@ function startLobbyCountdown(lobbyName) {
 function startGameForLobby(lobbyName) {
   const lobby = lobbies.get(lobbyName);
   if (!lobby) return;
+  lobby.players.forEach((meta) => {
+    if (meta) meta.eliminated = false;
+  });
   lobby.gameState = { state: 'playing', startedAt: Date.now() };
   broadcastToLobby(lobbyName, { type: 'lobbyState', payload: { players: getPlayersForBroadcast(lobby), gameState: lobby.gameState } });
   // Broadcast shared map to all players at game start
@@ -259,11 +263,11 @@ wss.on('connection', (ws, req) => {
         ws.nickname = existing.nickname || requested;
         // remove old entry and replace with this ws (keep single entry per clientId/ip)
         lobby.players.delete(existing.id);
-        lobby.players.set(ws.id, { id: ws.id, nickname: ws.nickname, ws, clientId, ip, inLobby: true });
+        lobby.players.set(ws.id, { id: ws.id, nickname: ws.nickname, ws, clientId, ip, inLobby: true, eliminated: false });
       } else {
         // enforce uniqueness across different clients
         ws.nickname = generateUniqueNickname(lobby, requested).slice(0, 32);
-        lobby.players.set(ws.id, { id: ws.id, nickname: ws.nickname, ws, clientId, ip, inLobby: true });
+        lobby.players.set(ws.id, { id: ws.id, nickname: ws.nickname, ws, clientId, ip, inLobby: true, eliminated: false });
       }
       
       // Assign player index based on join order (0-3 for up to 4 players)
@@ -332,6 +336,14 @@ wss.on('connection', (ws, req) => {
     if (msg.type === 'action' && msg.payload) {
       // attach sender id and broadcast
       const payload = Object.assign({}, msg.payload, { playerId: ws.id });
+
+      if (payload.type === 'died') {
+        const deadMeta = lobby.players.get(ws.id);
+        if (deadMeta) deadMeta.eliminated = true;
+        const aliveCount = Array.from(lobby.players.values()).filter(p => p && p.eliminated !== true).length;
+        payload.remainingPlayers = aliveCount;
+      }
+
       const out = { type: 'action', payload };
       // Update lobby gameState players positions for move actions
       try {

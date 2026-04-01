@@ -236,7 +236,7 @@ export class RemotePlayersManager {
       }
     } else if (type === 'died') {
       // remove remote player's visual
-      this.removePlayer(playerId);
+      this.removePlayer(playerId, payload.remainingPlayers);
       // If local player exists and is alive, and no remote players remain during active play, show local win
       try {
         const gameState = (store.getState() && store.getState().gameState) || 'lobby';
