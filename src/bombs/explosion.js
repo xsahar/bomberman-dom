@@ -1,5 +1,6 @@
 import { store } from '../../framework/index.js';
 import { getPowerupManager } from '../utils/helpers.js';
+import { TILE_SIZE } from '../utils/constants.js';
 
 export class ExplosionSystem {
     constructor(bombManager = null) {
@@ -21,6 +22,7 @@ export class ExplosionSystem {
 
         // 1. CALCULATE FIRE PATH (The "+" Shape)
         const affectedTiles = this.calculateExplosionRange(bomb, mapData);
+        let destroyedAnyBlock = false;
 
         const triggeredBombs = [];
 
@@ -40,6 +42,7 @@ export class ExplosionSystem {
             // A. DESTROY SOFT BLOCKS
             if (mapData[tile.row][tile.col].type === 'block') {
                 mapData[tile.row][tile.col].type = 'empty';
+                destroyedAnyBlock = true;
 
                 // Try to spawn a powerup at the destroyed block's position.
                 // `spawnPowerup` already handles the random chance (30%) and
@@ -86,10 +89,9 @@ export class ExplosionSystem {
             this.triggerExplosion(chainBomb, mapData, player);
         });
 
-        // 3. CREATE EXPLOSION VISUALS (optional - disabled to minimize repaint)
+        // 3. CREATE EXPLOSION VISUALS (lightweight CSS animation, minimal DOM operations)
         if (SHOW_EXPLOSION_VISUALS) {
             affectedTiles.forEach(tile => {
-                const TILE_SIZE = 40;
                 const explosionDiv = document.createElement('div');
                 explosionDiv.className = 'explosion';
                 explosionDiv.style.left = (tile.col * TILE_SIZE) + 'px';
@@ -105,22 +107,22 @@ export class ExplosionSystem {
             });
         }
 
-        // 4. UPDATE STORE (only after explosion, not during frequent updates)
-        // This will trigger the map renderer to update and show destroyed blocks
-        const state = store.getState();
-        store.setState({
-            map: { ...state.map, data: mapData }
-        });
+        // 4. UPDATE STORE only if map actually changed to avoid extra re-renders
+        if (destroyedAnyBlock) {
+            const state = store.getState();
+            store.setState({
+                map: { ...state.map, data: mapData }
+            });
+        }
 
         // 5. SYNC MAP CHANGES WITH OTHER PLAYERS
-        if (window.mpWS?.ws?.readyState === 1) {
-            // Send the affected tiles and map changes to other players
+        if (destroyedAnyBlock && window.mpWS?.ws?.readyState === 1) {
+            // Send only delta tiles; avoid full-map payload races and extra overhead
             window.mpWS.send({
                 type: 'action',
                 payload: {
                     type: 'mapUpdate',
                     affectedTiles: affectedTiles,
-                    mapData: mapData,
                     explosionCenter: { row: bomb.row, col: bomb.col, range: bomb.range || 1 },
                     timestamp: Date.now()
                 }

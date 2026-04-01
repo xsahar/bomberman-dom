@@ -1,8 +1,6 @@
 import { h, store } from '../../framework/index.js';
 import { getPowerupManager } from '../utils/helpers.js';
 
-const TILE_SIZE = 40; // Pixels
-
 export function renderMap(mapData) {
   // 1. Merge powerups into a copy of the map so renderer can draw them
   const state = store.getState();

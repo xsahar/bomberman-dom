@@ -6,6 +6,7 @@
 // - Methods: placeBomb(), updateBombs(), canPlaceBomb(), removeBomb(), renderBombs()
 
 import { store } from '../../framework/index.js';
+import { TILE_SIZE } from '../utils/constants.js';
 
 export class BombPlacement {
     constructor() {
@@ -66,7 +67,6 @@ export class BombPlacement {
         };
 
         // 6. CREATE DOM ELEMENT FOR BOMB
-        const TILE_SIZE = 40;
         const bombElement = document.createElement('div');
         bombElement.className = 'bomb';
         bombElement.style.left = (col * TILE_SIZE) + 'px';

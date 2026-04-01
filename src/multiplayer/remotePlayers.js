@@ -1,8 +1,6 @@
 // RemotePlayersManager: render other players and remote bombs on the map
 import { store } from '../../framework/index.js';
-const TILE_SIZE = 40;
-const PLAYER_SIZE = 32;
-const OFFSET = (TILE_SIZE - PLAYER_SIZE) / 2; // Center player in tile
+import { TILE_SIZE, OFFSET, DIRECTION_MAP } from '../utils/constants.js';
 
 export class RemotePlayersManager {
   constructor({ wsManager, mapContainer = document.querySelector('.map') } = {}) {
@@ -188,13 +186,7 @@ export class RemotePlayersManager {
       // Update position and facing frame
       this.updatePlayerPosition(playerId, payload.row, payload.col, payload.x, payload.y);
       if (typeof payload.direction === 'number') {
-        const directionMap = {
-          0: { x: 0, y: 0 },     // down
-          1: { x: 100, y: 0 },   // left
-          2: { x: 100, y: 100 }, // right
-          3: { x: 0, y: 100 }    // up
-        };
-        const pos = directionMap[payload.direction] || directionMap[0];
+        const pos = DIRECTION_MAP[payload.direction] || DIRECTION_MAP[0];
         const playerRec = this.players.get(playerId);
         if (playerRec && playerRec.element) {
           playerRec.element.style.backgroundPosition = `${pos.x}% ${pos.y}%`;
@@ -306,17 +298,7 @@ export class RemotePlayersManager {
   handleRemoteExplosion(payload) {
     if (!this.mapContainer) return;
     const { row, col, range = 1 } = payload;
-    
-    
-    // Remove any bomb at this position
-    const bombs = this.mapContainer.querySelectorAll('.remote-bomb, .bomb');
-    bombs.forEach(bomb => {
-      const bombRow = Math.floor(parseInt(bomb.style.top) / TILE_SIZE);
-      const bombCol = Math.floor(parseInt(bomb.style.left) / TILE_SIZE);
-      if (bombRow === row && bombCol === col) {
-        bomb.remove();
-      }
-    });
+    this.removeBombsAt(row, col);
     
     // Create explosion visual effects
     this.createExplosionEffect(row, col, range);
@@ -325,18 +307,41 @@ export class RemotePlayersManager {
   handleMapUpdate(payload) {
     if (!payload.affectedTiles || !payload.explosionCenter) return;
     
-    // Update local map state with remote changes
-    if (payload.mapData) {
-      try {
-        store.setState({
-          map: { ...store.getState().map, data: payload.mapData }
+    // Update local map state by applying only destructive changes (block→empty)
+    // Never restore blocks from stale snapshots to prevent race conditions
+    try {
+      const state = store.getState();
+      const currentMap = state.map?.data || [];
+      let changesApplied = false;
+      
+      // Merge changes: only apply block destructions, never restore blocks
+      if (Array.isArray(payload.affectedTiles)) {
+        payload.affectedTiles.forEach(tile => {
+          const { row, col } = tile;
+          if (row >= 0 && col >= 0 && row < currentMap.length && col < currentMap[0].length) {
+            const currentTile = currentMap[row][col];
+            // Only update if current tile is 'block'; destroy it to 'empty'
+            if (currentTile && currentTile.type === 'block') {
+              currentTile.type = 'empty';
+              changesApplied = true;
+            }
+            // Never restore 'empty' or 'wall' back to 'block' from a stale snapshot
+          }
         });
-      } catch (err) {
-        console.warn('Failed to update map state:', err);
       }
+      
+      // Only trigger re-render if changes were actually applied (avoid redundant DOM updates)
+      if (changesApplied) {
+        const state2 = store.getState();
+        store.setState({
+          map: { ...state2.map, data: currentMap }
+        });
+      }
+    } catch (err) {
+      console.warn('Failed to update map state:', err);
     }
     
-    // Create explosion visuals for the affected tiles
+    // Create explosion visuals for the affected tiles (lightweight CSS animation, no re-render)
     this.createExplosionEffect(
       payload.explosionCenter.row, 
       payload.explosionCenter.col, 
@@ -441,10 +446,7 @@ export class RemotePlayersManager {
         this.updatePlayerPosition(id, meta.row, meta.col, meta.x, meta.y);
         // Apply facing direction if present
         if (typeof meta.direction === 'number') {
-          const directionMap = {
-            0: { x: 0, y: 0 }, 1: { x: 100, y: 0 }, 2: { x: 100, y: 100 }, 3: { x: 0, y: 100 }
-          };
-          const pos = directionMap[meta.direction] || directionMap[0];
+          const pos = DIRECTION_MAP[meta.direction] || DIRECTION_MAP[0];
           const rec = this.players.get(id);
           if (rec && rec.element) rec.element.style.backgroundPosition = `${pos.x}% ${pos.y}%`;
         }

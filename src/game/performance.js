@@ -10,6 +10,7 @@ export class PerformanceManager {
     this.fps = 60;
     this.frameCount = 0;
     this.lastSecond = performance.now();
+    this.lastRafTs = 0;
     this.droppedFrames = 0;
     this.maxFrameTime = 16.67; // 60fps budget in ms
     // Keep disabled by default to avoid console overhead affecting FPS.
@@ -34,32 +35,46 @@ export class PerformanceManager {
     if (!this.enabled) return 0;
     this.frameEnd = performance.now();
     this.frameTime = this.frameEnd - this.frameStart;
-    this.frameCount++;
-    this.history.push(this.frameTime);
-    if (this.history.length > 60) this.history.shift();
-
-    // Track dropped frames (anything > 16.67ms causes frame skips)
-    if (this.frameTime > this.maxFrameTime) {
-      this.droppedFrames++;
-      if (this.enabled) {
-        console.warn(`⚠️ FRAME DROP: ${this.frameTime.toFixed(2)}ms (${(1000 / this.frameTime).toFixed(1)} fps actual)`);
-      }
-    } else if (this.frameTime > this.warningThreshold && this.enabled) {
-      console.debug(`⏱️ Frame: ${this.frameTime.toFixed(2)}ms`);
-    }
-
-    // Calculate FPS every second
-    if (this.frameEnd - this.lastSecond >= 1000) {
-      const avgFrameTime = this.history.reduce((a, b) => a + b, 0) / this.history.length;
-      this.fps = 1000 / avgFrameTime;
-      this.lastSecond = this.frameEnd;
-      
-      if (this.enabled && this.frameCount % 60 === 0) {
-        console.log(`📊 Avg FPS: ${this.fps.toFixed(1)} | Dropped: ${this.droppedFrames} | Avg frame: ${avgFrameTime.toFixed(2)}ms`);
-      }
+    // This method tracks JS update cost only.
+    // FPS cadence and dropped-frame accounting are handled by measureRafFrame().
+    if (this.frameTime > this.warningThreshold && this.enabled) {
+      console.debug(`⏱️ Update cost: ${this.frameTime.toFixed(2)}ms`);
     }
 
     return this.frameTime;
+  }
+
+  /**
+   * Measure actual frame cadence from requestAnimationFrame timestamps.
+   * This reports display-paced FPS, not just JS update cost.
+   */
+  measureRafFrame(rafTimestamp) {
+    if (!this.enabled) return 0;
+    if (!this.lastRafTs) {
+      this.lastRafTs = rafTimestamp;
+      return 0;
+    }
+
+    const delta = rafTimestamp - this.lastRafTs;
+    this.lastRafTs = rafTimestamp;
+    if (delta <= 0) return 0;
+
+    this.frameCount++;
+    this.history.push(delta);
+    if (this.history.length > 60) this.history.shift();
+
+    if (delta > this.maxFrameTime) {
+      this.droppedFrames++;
+    }
+
+    if (rafTimestamp - this.lastSecond >= 1000) {
+      const avgFrameTime = this.history.reduce((a, b) => a + b, 0) / this.history.length;
+      // Clamp very high values caused by tiny samples or focus transitions.
+      this.fps = Math.min(240, 1000 / avgFrameTime);
+      this.lastSecond = rafTimestamp;
+    }
+
+    return delta;
   }
 
   /**
@@ -101,6 +116,7 @@ export class PerformanceManager {
     this.frameCount = 0;
     this.droppedFrames = 0;
     this.history = [];
+    this.lastRafTs = 0;
   }
 }
 

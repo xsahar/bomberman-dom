@@ -94,7 +94,7 @@ export class MapGenerator {
         const lastRow = this.rows - 1;
         const lastCol = this.cols - 1;
 
-        const safeDist = 3; 
+        const safeDist = 3; // Original: 4x4 per corner for balanced gameplay
 
         const inTopLeft = row <= safeDist && col <= safeDist;
         const inTopRight = row <= safeDist && col >= lastCol - safeDist;
@@ -113,8 +113,8 @@ export class MapGenerator {
                 if (cell.type === 'wall') continue; // Don't overwrite walls
                 if (this.isInSpawnArea(row, col)) continue; // Double check spawn areas
 
-                // Random Chance (e.g., 60% chance for a soft block)
-                if (Math.random() < 0.6) { 
+                // Random Chance (slightly increased for denser opening map)
+                if (Math.random() < 0.65) { 
                     cell.type = 'block';
                 }
             }

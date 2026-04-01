@@ -1,11 +1,9 @@
 // Import the global state manager from the framework
 import { store } from '../../framework/index.js';
 import { getPowerupManager } from '../utils/helpers.js';
+import { TILE_SIZE, PLAYER_SIZE, OFFSET, DIRECTION_MAP } from '../utils/constants.js';
 
 // --- Player visual and movement configuration ---
-const TILE_SIZE = 40;       // Size of each map tile in pixels
-const PLAYER_SIZE = 32;     // Size of the player sprite in pixels
-const OFFSET = (TILE_SIZE - PLAYER_SIZE) / 2; // Center player in tile
 const SPEED = 4;            // Movement speed (pixels per frame)
 const MOVE_DELAY = 8;       // Frames between discrete tile movements when key is held
 
@@ -184,10 +182,7 @@ export class Player {
 
     // --- Render Player ---
     render() {
-        const directionMap = {
-            0: {x:0,y:0}, 1:{x:100,y:0}, 2:{x:100,y:100}, 3:{x:0,y:100}
-        };
-        const pos = directionMap[this.direction] || directionMap[0];
+        const pos = DIRECTION_MAP[this.direction] || DIRECTION_MAP[0];
         this.element.style.transform = `translate(${this.x}px, ${this.y}px)`;
         this.element.style.backgroundPosition = `${pos.x}% ${pos.y}%`;
     }

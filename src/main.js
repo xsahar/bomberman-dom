@@ -291,9 +291,12 @@ function initPlayer() {
     explosionSystem = new ExplosionSystem(bombPlacer);
 
     // Start game loop
-    function gameLoop() {
+    function gameLoop(rafTs) {
         const perfOn = performanceManager.isEnabled();
-        if (perfOn) performanceManager.measureFrameStart();
+        if (perfOn) {
+            performanceManager.measureRafFrame(typeof rafTs === 'number' ? rafTs : performance.now());
+            performanceManager.measureFrameStart();
+        }
         
         if (!gameRunning) return;
         // Skip game update if game is paused
@@ -352,6 +355,7 @@ window.addEventListener('load', async () => {
             let gameStarted = false;
             let playerIndex = 0; // Track which player this is for spawn positioning
             let restartRequested = false;
+            let mapSyncedOnce = false;
 
             const lobby = new LobbyUI({
                 wsManager: ws,
@@ -441,8 +445,10 @@ window.addEventListener('load', async () => {
             });
 
             ws.on('mapSync', payload => {
+                if (gameStarted || mapSyncedOnce) return;
                 if (payload && payload.data) {
                     store.setState({ map: { data: payload.data, rows: payload.rows, cols: payload.cols } });
+                    mapSyncedOnce = true;
                 }
             });
 
@@ -665,11 +671,16 @@ window.addEventListener('load', async () => {
                     const removed = bombPlacer.removeBomb(newBomb.id, newBomb.element);
                     const bomb = removed || newBomb;
 
+                    // Always use the freshest map at detonation time to avoid stale overwrites
+                    const latestState = store.getState();
+                    const latestMapData = latestState?.map?.data;
+                    if (!latestMapData) return;
+
                     // Calculate affected tiles so we can notify other clients
-                    const affectedTiles = explosionSystem.calculateExplosionRange(bomb, mapData);
+                    const affectedTiles = explosionSystem.calculateExplosionRange(bomb, latestMapData);
 
                     // Local explosion processing
-                    explosionSystem.triggerExplosion(bomb, mapData, player);
+                    explosionSystem.triggerExplosion(bomb, latestMapData, player);
 
                     // Sync explosion with other players (include affected tiles)
                     if (window.mpWS?.ws?.readyState === 1) {
