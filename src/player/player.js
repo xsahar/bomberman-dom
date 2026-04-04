@@ -10,12 +10,12 @@ const MOVE_DELAY = 8;       // Frames between discrete tile movements when key i
 export class Player {
     constructor(playerOptions = {}) {
         // --- 1. Initialize Player Data ---
-        this.id = playerOptions.id || 'p1';         
-        this.lives = 3;         
-        this.maxBombs = 1;      
-        this.bombRange = 1;     
-        this.speed = SPEED; 
-        this.dead = false;      
+        this.id = playerOptions.id || 'p1';
+        this.lives = 3;
+        this.maxBombs = 1;
+        this.bombRange = 1;
+        this.speed = SPEED;
+        this.dead = false;
 
         // Spawn position - use provided coordinates or default to top-left
         this.spawnRow = playerOptions.spawnRow || 1;
@@ -59,7 +59,7 @@ export class Player {
         });
 
         // --- 5. Animation state ---
-        this.direction = 0;    
+        this.direction = 0;
         this.isMoving = false;
         this.moveTickCounter = 0;  // Counter for frame-based movement delay
 
@@ -101,7 +101,7 @@ export class Player {
     move(dx, dy) {
         const nextX = this.x + dx;
         const nextY = this.y + dy;
-        
+
         // Discrete movement: check target tile, move only if valid (no sliding)
         if (!this.checkCollision(nextX, nextY)) {
             this.x = nextX;
@@ -166,8 +166,8 @@ export class Player {
         const edge = PLAYER_SIZE - 1;
 
         const points = [
-            {x:newX, y:newY}, {x:newX+edge, y:newY},
-            {x:newX, y:newY+edge}, {x:newX+edge, y:newY+edge}
+            { x: newX, y: newY }, { x: newX + edge, y: newY },
+            { x: newX, y: newY + edge }, { x: newX + edge, y: newY + edge }
         ];
 
         for (const p of points) {
@@ -175,7 +175,7 @@ export class Player {
             const row = Math.floor(p.y / TILE_SIZE);
             if (row < 0 || col < 0 || row >= 13 || col >= 15) return true;
             const tile = mapData[row][col];
-            if (tile && (tile.type==='wall'||tile.type==='block')) return true;
+            if (tile && (tile.type === 'wall' || tile.type === 'block')) return true;
         }
         return false;
     }
@@ -202,7 +202,7 @@ export class Player {
     }
 
     // --- Apply Damage ---
-    applyDamage(amount=1) {
+    applyDamage(amount = 1) {
         if (this.dead) return;
         this.lives = Math.max(0, this.lives - amount);
         this.flashHit();
@@ -246,7 +246,7 @@ export class Player {
         this.keys = {};
         if (this.element) {
             this.element.classList.add('player-dead');
-            this.element.style.opacity='0.35';
+            this.element.style.opacity = '0.35';
             this.element.remove();
         }
     }
@@ -261,7 +261,7 @@ export class Player {
             if (mapContainer) mapContainer.appendChild(this.element);
         }
         this.render();
-        
+
         // Broadcast respawn position to other players
         if (window.mpWS?.ws?.readyState === 1) {
             window.mpWS.send({
@@ -300,7 +300,7 @@ export class Player {
     // Check if player is in explosion range
     isInExplosion(explosion) {
         if (!explosion) return false;
-        
+
         // Check if player's current position matches explosion position
         return this.row === explosion.row && this.col === explosion.col;
     }
@@ -309,17 +309,17 @@ export class Player {
     showEndGameMessage(msg) {
         // Mark game as ended globally to prevent other overlays
         try { if (typeof window.gameEnded !== 'undefined') window.gameEnded = true; } catch (e) { /* ignore */ }
-        
+
         let overlay = document.querySelector('.endgame-overlay');
         if (!overlay) {
             overlay = document.createElement('div');
             overlay.className = 'endgame-overlay';
-            
+
             // Determine if it's a win or loss based on the message
             const isWin = msg.includes('Won');
             const emoji = isWin ? '🎉' : '💀';
             const title = isWin ? 'Victory!' : 'Defeat!';
-            
+
             overlay.innerHTML = `
                 <div class="endgame-modal">
                     <div class="endgame-header">
@@ -338,15 +338,15 @@ export class Player {
                 </div>
             `;
             document.body.appendChild(overlay);
-            
+
             // Add event listeners
             const restartBtn = overlay.querySelector('#restart-btn');
             const exitBtn = overlay.querySelector('#exit-btn');
-            
+
             restartBtn.addEventListener('click', () => {
                 location.reload();
             });
-            
+
             exitBtn.addEventListener('click', () => {
                 location.reload();
             });
@@ -365,7 +365,7 @@ export class Player {
     // --- Win Check (call after moves/bombs) ---
     checkWinCondition() {
         const state = store.getState();
-        const alivePlayers = (state.players||[]).filter(p => !p.dead);
+        const alivePlayers = (state.players || []).filter(p => !p.dead);
         if (alivePlayers.length === 1 && alivePlayers[0].id === this.id) {
             this.showEndGameMessage('🎉 You Won!');
             return true;

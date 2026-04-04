@@ -132,11 +132,69 @@ function startGameForLobby(lobbyName) {
     if (meta) meta.eliminated = false;
   });
   lobby.gameState = { state: 'playing', startedAt: Date.now() };
-  broadcastToLobby(lobbyName, { type: 'lobbyState', payload: { players: getPlayersForBroadcast(lobby), gameState: lobby.gameState } });
-  // Broadcast shared map to all players at game start
+  // Ensure a shared map exists: if no client provided one, generate server-side
+  if (!lobby.sharedMap) {
+    lobby.sharedMap = generateSharedMap();
+    console.log(`[LOBBY] Server-generated shared map for ${lobbyName}`);
+  }
+  // Broadcast shared map to all players BEFORE announcing playing state so clients accept it
   if (lobby.sharedMap) {
     broadcastToLobby(lobbyName, { type: 'mapSync', payload: lobby.sharedMap });
   }
+  broadcastToLobby(lobbyName, { type: 'lobbyState', payload: { players: getPlayersForBroadcast(lobby), gameState: lobby.gameState } });
+}
+
+// Simple server-side map generator to establish authoritative map for a lobby
+function generateSharedMap(rows = 13, cols = 15) {
+  const map = [];
+  // initialize empty
+  for (let r = 0; r < rows; r++) {
+    const row = [];
+    for (let c = 0; c < cols; c++) {
+      row.push({ type: 'empty' });
+    }
+    map.push(row);
+  }
+
+  function isInSpawnArea(row, col) {
+    const lastRow = rows - 1;
+    const lastCol = cols - 1;
+    const safeDist = 3;
+    const inTopLeft = row <= safeDist && col <= safeDist;
+    const inTopRight = row <= safeDist && col >= lastCol - safeDist;
+    const inBottomLeft = row >= lastRow - safeDist && col <= safeDist;
+    const inBottomRight = row >= lastRow - safeDist && col >= lastCol - safeDist;
+    return inTopLeft || inTopRight || inBottomLeft || inBottomRight;
+  }
+
+  // place border and inner walls
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < cols; col++) {
+      const isBorder = row === 0 || col === 0 || row === rows - 1 || col === cols - 1;
+      if (isBorder) {
+        map[row][col].type = 'wall';
+        continue;
+      }
+      if (isInSpawnArea(row, col)) {
+        map[row][col].type = 'empty';
+        continue;
+      }
+      const isInnerWall = (row % 2 === 0 && col % 2 === 0);
+      if (isInnerWall) map[row][col].type = 'wall';
+    }
+  }
+
+  // place random blocks
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < cols; col++) {
+      const cell = map[row][col];
+      if (cell.type === 'wall') continue;
+      if (isInSpawnArea(row, col)) continue;
+      if (Math.random() < 0.65) cell.type = 'block';
+    }
+  }
+
+  return { data: map, rows, cols };
 }
 
 function evaluateLobbyStart(lobbyName) {
@@ -169,7 +227,7 @@ wss.on('connection', (ws, req) => {
   console.log('client connected');
   // Assign a short unique id
   ws.id = Math.random().toString(36).slice(2, 9);
-  
+
   // Find an available lobby (not playing) or create a new one
   let lobbyName = 'main';
   let lobbyIndex = 1;
@@ -181,10 +239,10 @@ wss.on('connection', (ws, req) => {
     // Try next lobby
     lobbyName = `main-${lobbyIndex++}`;
   }
-  
+
   ws.lobby = lobbyName;
   const lobby = ensureLobby(ws.lobby);
-  
+
   // If joining a 'playing' lobby with solo player left, reset it to lobby state
   const lobbyPlayerCount = Array.from(lobby.players.values()).filter(p => p && p.inLobby !== false).length;
   if (lobby.gameState.state === 'playing' && lobbyPlayerCount <= 1) {
@@ -194,7 +252,7 @@ wss.on('connection', (ws, req) => {
     lobby.sharedMap = null;
     console.log(`[LOBBY] Resetting '${ws.lobby}' from playing to lobby (${lobbyPlayerCount} player(s) detected)`);
   }
-  
+
   console.log(`[LOBBY] Assigned ${ws.id} to lobby: ${lobbyName}`);
 
   function removePlayer() {
@@ -203,7 +261,7 @@ wss.on('connection', (ws, req) => {
     if (l.players.has(ws.id)) {
       const leavingMeta = l.players.get(ws.id);
       l.players.delete(ws.id);
-      
+
       // If game is playing and only 1 player or fewer left, reset the lobby FIRST
       if (l.gameState.state === 'playing' && l.players.size <= 1) {
         cleanupLobbyTimers(l);
@@ -211,7 +269,7 @@ wss.on('connection', (ws, req) => {
         l.sharedMap = null;
         console.log(`[LOBBY] Game in '${ws.lobby}' ended: ${l.players.size} player(s) remaining`);
       }
-      
+
       const leavingPayload = {
         id: ws.id,
         nickname: (leavingMeta && leavingMeta.nickname) || ws.nickname || ws.id,
@@ -228,7 +286,7 @@ wss.on('connection', (ws, req) => {
       broadcastToLobby(ws.lobby, { type: 'lobbyState', payload: { players: getPlayersForBroadcast(l), gameState: l.gameState } });
       // push an updated state snapshot after removal
       scheduleStateSync(ws.lobby, 50);
-      
+
       // If lobby is empty and game finished, clean it up
       if (l.players.size === 0 && l.gameState.state === 'playing') {
         cleanupLobbyTimers(l);
@@ -269,18 +327,18 @@ wss.on('connection', (ws, req) => {
         ws.nickname = generateUniqueNickname(lobby, requested).slice(0, 32);
         lobby.players.set(ws.id, { id: ws.id, nickname: ws.nickname, ws, clientId, ip, inLobby: true, eliminated: false });
       }
-      
+
       // Assign player index based on join order (0-3 for up to 4 players)
       const playerIndex = Math.min(lobby.players.size - 1, 3);
-      
+
       //send the client his assigned id and playerIndex
-      ws.send(JSON.stringify({ 
-        type: 'joined', 
-        payload: { 
-          id: ws.id, 
-          nickname: ws.nickname, 
-          playerIndex: playerIndex 
-        } 
+      ws.send(JSON.stringify({
+        type: 'joined',
+        payload: {
+          id: ws.id,
+          nickname: ws.nickname,
+          playerIndex: playerIndex
+        }
       }));
       // send a state sync snapshot for late joiners
       ws.send(JSON.stringify({ type: 'stateSync', payload: lobby.gameState }));
