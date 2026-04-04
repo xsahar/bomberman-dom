@@ -2,7 +2,7 @@ import { createApp, h, store } from '../framework/index.js';
 // WebSocket integration and multiplayer UI are handled in `src/multiplayer/`.
 import { MapGenerator } from './map/mapGenerator.js';
 import { renderMap } from './ui/mapRenderer.js';
-import { Player } from './player/player.js'; 
+import { Player } from './player/player.js';
 import { BombPlacement } from './bombs/bombPlacement.js';
 import { ExplosionSystem } from './bombs/explosion.js';
 import { resetRound } from './game/gameFlow.js';
@@ -52,7 +52,7 @@ function initializeGame() {
     const generator = new MapGenerator();
     const mapData = generator.generateMap();
 
-    store.setState({ 
+    store.setState({
         map: { data: mapData, rows: 13, cols: 15 },
         powerups: [],
         bombs: [],
@@ -61,7 +61,7 @@ function initializeGame() {
         playerLives: 3,
         gameTime: 120
     });
-    
+
     return mapData;
 }
 
@@ -69,7 +69,7 @@ function initializeGame() {
 function RootComponent() {
     const state = store.getState();
     const mapData = state.map?.data || [];
-    
+
     return h.div({ className: 'game-root' }, [
         h.h1({}, 'Bomberman Game'),
         h.div({ className: 'timer', id: 'game-timer' }, formatTime(state.gameTime || 120)),
@@ -88,31 +88,31 @@ function formatTime(seconds) {
 function playTimeUpSound() {
     try {
         const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        
+
         // Create alarm sound - three beeps escalating in frequency
         const now = audioContext.currentTime;
         const beepDuration = 0.2;
         const beepPause = 0.1;
-        
+
         const beeps = [
             { freq: 800, time: now },
             { freq: 1000, time: now + beepDuration + beepPause },
             { freq: 1200, time: now + (beepDuration + beepPause) * 2 }
         ];
-        
+
         beeps.forEach(beep => {
             const osc = audioContext.createOscillator();
             const gain = audioContext.createGain();
-            
+
             osc.frequency.value = beep.freq;
             osc.type = 'sine';
-            
+
             gain.gain.setValueAtTime(0.3, beep.time);
             gain.gain.exponentialRampToValueAtTime(0.01, beep.time + beepDuration);
-            
+
             osc.connect(gain);
             gain.connect(audioContext.destination);
-            
+
             osc.start(beep.time);
             osc.stop(beep.time + beepDuration);
         });
@@ -191,12 +191,12 @@ function startTimer(startedAt = null, durationSeconds = 120) {
 function showTimeUpOverlay() {
     if (gameEnded || window.gameEnded) return; // Don't show if game already ended
     setGameEnded(true);
-    
+
     // Play time-up alert sound
     playTimeUpSound();
-    
+
     stopGame('timeup');
-    
+
     // Use custom timeup overlay instead of generic gameUI
     let overlay = document.querySelector('.timeup-overlay');
     if (!overlay) {
@@ -248,11 +248,11 @@ function initPlayer() {
     // Get spawn positions from map generator
     const generator = new MapGenerator();
     const spawnPositions = generator.getSpawnPositions();
-    
+
     // Use playerIndex if available from multiplayer, otherwise default to 0
     const currentPlayerIndex = (window.mpWS && window.mpWS.playerIndex !== undefined) ? window.mpWS.playerIndex : 0;
     const spawn = spawnPositions[currentPlayerIndex] || spawnPositions[0];
-    
+
     player = new Player({
         id: 'local_player',
         spawnRow: spawn.row,
@@ -285,7 +285,7 @@ function initPlayer() {
         });
     }
 
-  
+
 
     bombPlacer = new BombPlacement();
     explosionSystem = new ExplosionSystem(bombPlacer);
@@ -297,7 +297,7 @@ function initPlayer() {
             performanceManager.measureRafFrame(typeof rafTs === 'number' ? rafTs : performance.now());
             performanceManager.measureFrameStart();
         }
-        
+
         if (!gameRunning) return;
         // Skip game update if game is paused
         if (!gamePaused) {
@@ -325,15 +325,57 @@ window.addEventListener('load', async () => {
     app.render();
     // Centralized Game UI for end-game overlays
     try { window.gameUI = new GameUI(); } catch (e) { console.warn('GameUI init failed', e); }
-    
+
     // Show instructions modal before game starts
     const instructions = new GameInstructions();
     await instructions.show();
-    
+
     // Expose app globally for re-rendering after remote map updates
     window.app = app;
 
-    const mapContainer = document.querySelector('.map'); 
+    // Start a lightweight frame pacer that uses requestAnimationFrame to
+    // keep a steady ~60fps tick without running the game loop. This is
+    // useful for keeping animations and browser rAF callbacks warm.
+    function startFramePacer(targetFps = 120) {
+        if (window.__framePacerRunning) return;
+        const interval = 1000 / targetFps;
+        let last = performance.now();
+
+        function tick(ts) {
+            const now = ts || performance.now();
+            const elapsed = now - last;
+            if (elapsed >= interval - 1) {
+                // keep last in sync (allow small drift)
+                last = now - (elapsed % interval);
+                try { if (performanceManager && typeof performanceManager.measureRafFrame === 'function') performanceManager.measureRafFrame(now); } catch (e) { /* ignore */ }
+            }
+            window.__framePacerId = requestAnimationFrame(tick);
+        }
+
+        window.__framePacerRunning = true;
+        window.__framePacerId = requestAnimationFrame(tick);
+     
+        if (targetFps > 75) {
+            const intervalMs = Math.max(1, Math.round(1000 / targetFps));
+            window.__framePacerIntervalId = setInterval(() => {
+                const now = performance.now();
+                try { if (performanceManager && typeof performanceManager.measureRafFrame === 'function') performanceManager.measureRafFrame(now); } catch (e) { /* ignore */ }
+            }, intervalMs);
+        }
+
+        window.__stopFramePacer = () => {
+            if (window.__framePacerId) cancelAnimationFrame(window.__framePacerId);
+            if (window.__framePacerIntervalId) { clearInterval(window.__framePacerIntervalId); window.__framePacerIntervalId = null; }
+            window.__framePacerRunning = false;
+        };
+    }
+
+    // start pacer at higher target (does NOT start the game loop)
+    // Note: browsers limit requestAnimationFrame to display refresh; the
+    // pacer uses a setInterval fallback to emulate higher logical FPS.
+    startFramePacer(120);
+
+    const mapContainer = document.querySelector('.map');
 
     // Multiplayer integration
     (async () => {
@@ -347,7 +389,7 @@ window.addEventListener('load', async () => {
             let nickname = localStorage.getItem('mp_nick') || '';
             if (!nickname) {
                 nickname = await showNicknameModal();
-                if (!nickname) nickname = 'Player_' + Math.floor(Math.random()*9999);
+                if (!nickname) nickname = 'Player_' + Math.floor(Math.random() * 9999);
                 localStorage.setItem('mp_nick', nickname);
             }
 
@@ -422,12 +464,12 @@ window.addEventListener('load', async () => {
             });
 
             ws.connect(nickname);
-            
+
             // Create lobby chat (collapsed by default)
             if (lobby.chatContainer) {
                 new ChatManager(ws, lobby.chatContainer, { collapsed: true });
             }
-            
+
             // Create in-game chat (collapsed by default)
             new ChatManager(ws, document.getElementById('app'), { collapsed: false });
             const rpm = new RemotePlayersManager({ wsManager: ws, mapContainer });
@@ -482,7 +524,7 @@ window.addEventListener('load', async () => {
                             pauseMenu.remoteResume();
                         }
                     } catch (e) { /* ignore */ }
-                    
+
                     // Give RemotePlayersManager a chance to trigger win via _checkLocalWinOnSolo
                     // If that doesn't fire (edge case), force win after 100ms as backup
                     setTimeout(() => {
@@ -505,11 +547,11 @@ window.addEventListener('load', async () => {
             });
             ws.on('action', a => rpm.handleAction(a));
             ws.on('stateSync', s => rpm.syncState(s));
-            
+
             // Handle pause messages from other players
             ws.on('pause', (payload) => {
                 if (!pauseMenu) return;
-                
+
                 if (payload && payload.action === 'pause') {
                     gamePaused = true;
                     try { if (window.__setRoundTimerPaused) window.__setRoundTimerPaused(true); } catch (e) { /* ignore */ }
@@ -532,7 +574,7 @@ window.addEventListener('load', async () => {
                 stopGame('lobby');
                 setTimeout(() => location.reload(), 80);
             });
-            
+
             ws.on('lobbyState', s => {
                 if (s && s.players) {
                     const generator = new MapGenerator();
@@ -666,7 +708,7 @@ window.addEventListener('load', async () => {
                         }
                     });
                 }
-                
+
                 newBomb.timerId = setTimeout(() => {
                     const removed = bombPlacer.removeBomb(newBomb.id, newBomb.element);
                     const bomb = removed || newBomb;
