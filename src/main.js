@@ -334,9 +334,9 @@ window.addEventListener('load', async () => {
     window.app = app;
 
     // Start a lightweight frame pacer that uses requestAnimationFrame to
-    // keep a steady ~60fps tick without running the game loop. This is
-    // useful for keeping animations and browser rAF callbacks warm.
-    function startFramePacer(targetFps = 120) {
+    // keep a steady tick without running the game loop. Use rAF-only to
+    // avoid CPU-heavy setInterval fallbacks which harm performance.
+    function startFramePacer(targetFps = 60) {
         if (window.__framePacerRunning) return;
         const interval = 1000 / targetFps;
         let last = performance.now();
@@ -354,26 +354,14 @@ window.addEventListener('load', async () => {
 
         window.__framePacerRunning = true;
         window.__framePacerId = requestAnimationFrame(tick);
-     
-        if (targetFps > 75) {
-            const intervalMs = Math.max(1, Math.round(1000 / targetFps));
-            window.__framePacerIntervalId = setInterval(() => {
-                const now = performance.now();
-                try { if (performanceManager && typeof performanceManager.measureRafFrame === 'function') performanceManager.measureRafFrame(now); } catch (e) { /* ignore */ }
-            }, intervalMs);
-        }
-
         window.__stopFramePacer = () => {
             if (window.__framePacerId) cancelAnimationFrame(window.__framePacerId);
-            if (window.__framePacerIntervalId) { clearInterval(window.__framePacerIntervalId); window.__framePacerIntervalId = null; }
             window.__framePacerRunning = false;
         };
     }
 
-    // start pacer at higher target (does NOT start the game loop)
-    // Note: browsers limit requestAnimationFrame to display refresh; the
-    // pacer uses a setInterval fallback to emulate higher logical FPS.
-    startFramePacer(120);
+    // start pacer at target refresh (does NOT start the game loop)
+    startFramePacer(60);
 
     const mapContainer = document.querySelector('.map');
 
